@@ -1,5 +1,5 @@
 
-#include "RTIndy7Client.h"
+#include "../RTIndy7Client.h"
 #include "MR_Indy7.h"
 #include "MR_DualArm.h"
 // #include "ScurveGenerator.h"

@@ -9,7 +9,7 @@
 #ifndef __XENO__
 #define __XENO__
 #endif
-#include "RTIndy7Client.h"
+#include "../RTIndy7Client.h"
 #include "MR_Indy7.h"
 #include "MR_DualArm.h"
 #include "MR_Indy7_DualArm.h"
@@ -209,7 +209,7 @@ void RTIndy7_run(void *arg)
 	step = 0;
 	relmr::JVec eint = relmr::JVec::Zero();
 	relmr::JVec q_init;
-	q_init<<-0.3532, -1.1644 ,-1.2237, -0.7882, -0.7229,  0.0695,0.3531 , 1.1645  ,1.2237 , 0.788  , 0.723 , -0.0696;
+	q_init<<-0.0, 0 ,0, 0, 0,  0.0695,0.3531 , 1.1645  ,1.2237 , 0.788  , 0.723 , -0.0696;
 	q_init = -q_init;
 	sim.setTimeOut(0.0009);
 	robot->reset_q(&sim,q_init);
@@ -218,64 +218,92 @@ void RTIndy7_run(void *arg)
 	relmr::JVec max_torque;
 	max_torque<<1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000;
 	relmr::JVec q_next=relmr::JVec::Random();
-	relmr::JVec q_next2=relmr::JVec::Random();
-	relmr::JVec q_next3=relmr::JVec::Random();
-	relmr::JVec q_next4=relmr::JVec::Random();
-	relmr::JVec qdot_1 =relmr::JVec::Random();
-	relmr::JVec qdot_2 =relmr::JVec::Random();
-	relmr::JVec qdot_max;
-	relmr::JVec qddot_max;
-	qdot_max<<2,2,2,2,2,2,2,2,2,2,2,2;
-	qddot_max<<5,5,5,5,5,5,5,5,5,5,5,5;
-
 	int trajType = 0; 
 	traj.addRelativeJointTrajectory(q_init,q_next,relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),0,2,dt,trajType);
-	previous = rt_timer_read();
-	traj.addScurveRelativeJointTrajectory(q_next,q_next2,relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),qdot_max,qddot_max,2,4,dt,trajType);
-	now = rt_timer_read();
-	rt_printf("TRAJECTORY TIME == %llu ns\n",now-previous);
-	rt_printf("TRAJECTORY TIME == %llu ns\n",now-previous);
-	rt_printf("TRAJECTORY TIME == %llu ns\n",now-previous);
-	rt_printf("TRAJECTORY TIME == %llu ns\n",now-previous);
-	rt_printf("TRAJECTORY TIME == %llu ns\n",now-previous);	
-	traj.addScurveRelativeJointTrajectory(q_next2,q_next3,relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),qdot_max,qddot_max,4,6,dt,trajType);
-	traj.addScurveRelativeJointTrajectory(q_next3,q_init,relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),qdot_max,qddot_max,6,10,dt,trajType);
-	dualarm.FKinBody(q_init);
-	mr::SE3 X0 = dualarm.Tbr0*dualarm.T0r;
-	mr::SO3 R01 = MatrixExp3(VecToso3(Vector3d(0.5,0.5,0.5)));
-	mr::SE3 X1 = dualarm.Tbr0*dualarm.T0r*RpToTrans(R01,Vector3d(0.1,0.1,0.1));
-	Vector6d V0 = Vector6d::Zero();
-	Vector6d V1 = Vector6d::Random()*0.1;
-	Vector6d Vd0 = Vector6d::Zero();
-	Vector6d Vd1 = Vector6d::Zero();
-	task_traj.addLieScrewTrajectory(X0,X1,V0,V1,Vd0,Vd1,0,2,dt,0);
-
-
-
-	drawTaskTrajectory(&sim,task_traj.Xd_list,dt,2);
-	Tf = 10;
+	relmr::JVec q_des = relmr::JVec::Zero();
+	relmr::JVec qdot_des = relmr::JVec::Zero();
+	relmr::JVec qddot_des = relmr::JVec::Zero();			
+	Tf = 20;
+	SE3 X_des_l =  mr_indy7_l.T_b(q_init.segment<6>(6));
+	mr::Vector6d V_l_des = mr::Vector6d::Zero();
+	mr::Vector6d Ftip_l = mr::Vector6d::Zero();
+	mr::Vector6d F_l_des = mr::Vector6d::Zero();
+	mr::Matrix6d A = mr::Matrix6d::Identity();
+	A(0,0) = 100.0;
+	A(1,1) = 100.0;
+	A(2,2) = 100.0;
+	A(3,3) = 100.0;
+	A(4,4) = 100.0;
+	A(5,5) = 100.0;
+	mr::Matrix6d D = mr::Matrix6d::Identity();
+	D(0,0) = 40.0;
+	D(1,1) = 40.0;
+	D(2,2) = 40.0;
+	D(3,3) = 40.0;
+	D(4,4) = 40.0;
+	D(5,5) = 40.0;	
+	mr::Matrix6d K = mr::Matrix6d::Identity();
+	K(0,0) = 1.0;
+	K(1,1) = 1.0;
+	K(2,2) = 1.0;
+	K(3,3) = 1.0;
+	K(4,4) = 1.0;
+	K(5,5) = 1.0;	
+	mr::Matrix6d invA = A.inverse();
+	mr::Vector6d dV_l_des = mr::Vector6d::Zero();
 	while (t<Tf)
 	{
 		rt_task_wait_period(NULL); 	//wait for next cycle
 		previous = rt_timer_read();
-		relmr::JVec q_des = relmr::JVec::Zero();
-		relmr::JVec qdot_des = relmr::JVec::Zero();
-		relmr::JVec qddot_des = relmr::JVec::Zero();		
-		traj.getRelativeJointTrajectory(t ,q_des,qdot_des,qddot_des );
 		relmr::JVec q = robot->get_q(&sim);
 		relmr::JVec qdot = robot->get_qdot(&sim);
-		dualarm.FKinBody(q);
 		relmr::JVec q_rel = dualarm.get_q_rel(q);
-		Trl = relmr::FKinBody(dualarm.M, dualarm.Blist, q_rel);
-		eint += (q_des-q)*dt;
-		relmr::JVec HinfTorq = dualarm.HinfControlSim(q,qdot,q_des,qdot_des,qddot_des,eint);
+		mr::JVec q_l = q.segment<6>(6);
+		mr::JVec qdot_l = qdot.segment<6>(6);
+		SE3 X_l = mr_indy7_l.T_b(q_l);
+		mr::Jacobian Jb_l = mr_indy7_l.J_b(q_l);
+		mr::Jacobian Jdotb_l = mr_indy7_l.Jdot_b(Jb_l,qdot_l);
+		SE3 invX_l = mr::TransInv(X_l);
+		mr::Vector6d lambda_act_l = mr::se3ToVec(MatrixLog6(X_l));
+		mr::SE3 X_l_err = invX_l*X_des_l;
+		mr::SE3 invX_l_err = TransInv(X_l_err);
+		mr::Vector6d V_l =Jb_l*qdot_l;
+		mr::Vector6d V_l_err = V_l_des - Adjoint(invX_l_err)*V_l;
+		//Ftip_l = mr_indy7_l. //get FTSensor
+		mr::Vector6d F_l_err = 0.5*(F_l_des - Adjoint(X_l_err)*Ftip_l);
+		mr::Vector6d lambda_l = se3ToVec(MatrixLog6(X_l_err));
+		mr::Vector6d dlambda_l = dlog6(-lambda_l)*V_l_err;
+		mr::Vector6d gamma_l = dexp6(-lambda_l).transpose()*F_l_err;
+
+		mr::Matrix6d A_lambda_l = dexp6(-lambda_l).transpose()*A*dexp6(-lambda_l);
+		mr::Matrix6d D_lambda_l = dexp6(-lambda_l).transpose()*D*dexp6(-lambda_l) + A_lambda_l*ddlog6(-lambda_l,-dlambda_l);
+		mr::Matrix6d K_lambda_l = dexp6(-lambda_l).transpose()*K*dexp6(-lambda_l);
+		mr::Matrix6d KV = dlog6(-lambda_l)*(invA*D*dexp6(-lambda_l) + dexp6(-lambda_l)*ddlog6(-lambda_l,-dlambda_l));
+		mr::Matrix6d KP = dlog6(-lambda_l)*invA*K*dexp6(-lambda_l);
+		mr::Matrix6d KG = dlog6(-lambda_l)*invA*dlog6(-lambda_l).transpose();
+
+		mr::Vector6d ddlambda_ref_l = - KV*dlambda_l - KP*lambda_l + KG*gamma_l;
+		mr::Vector6d  dV_ref_l = Adjoint(X_l_err)*(dV_l_des + ad(V_l_err)*V_l_des - dexp6(-lambda_l)*ddlambda_ref_l - ddexp6(-lambda_l,-dlambda_l)*dlambda_l);
+		mr::JVec ddq_ref_l = Jb_l.inverse()*(dV_ref_l - Jdotb_l*qdot_l);
+		relmr::MassMat Mmat = dualarm.MassMatrix(q);	
+		relmr::JVec C = dualarm.VelQuadraticForces(q,qdot);
 		relmr::JVec G = dualarm.GravityForces(q);		
-		robot->set_torque(&sim,HinfTorq,max_torque);
+		mr::MassMat Mmat_l = Mmat.bottomRightCorner<6, 6>();
+		mr::JVec C_l = C.segment<6>(6);
+		mr::JVec G_l = G.segment<6>(6);
+
+		mr::JVec tau_c = Mmat_l*ddq_ref_l + C_l+G_l + Jb_l.transpose()*(-Ftip_l);
+		mr::JVec tau = tau_c + Jb_l.transpose()*Ftip_l;
+		//mr::JVec tau= C_l+G_l ;
+		//eint += (q_des-q)*dt;
+		//relmr::JVec HinfTorq = dualarm.HinfControlSim(q,qdot,q_des,qdot_des,qddot_des,eint);
+
+
+
+		relmr::JVec tau_list = G;
+		tau_list.segment<6>(6) = tau;
+		robot->set_torque(&sim,tau_list,max_torque);
 		sim.stepSimulation();
-
-
-
-
 		// Logging
 		right_info.act.q = q.segment<6>(0);
 		right_info.act.q_dot = qdot.segment<6>(0);
@@ -287,7 +315,6 @@ void RTIndy7_run(void *arg)
 		left_info.des.q = q_des.segment<6>(6);
 		left_info.des.q_dot = qdot_des.segment<6>(6);
 		left_info.des.q_ddot = qddot_des.segment<6>(6);
-
 		now = rt_timer_read();
 		step = now-previous;
 		t+=dt;
@@ -310,16 +337,7 @@ void print_run(void *arg)
 	rt_task_set_periodic(NULL, TM_NOW, cycle_ns*100);
 	while (run)
 	{
-		
 		rt_task_wait_period(NULL); //wait for next cycle
-		
-		//rt_printf("R: %f -- %f %f %f %f %f %f\n",t,right_info.act.q[0],right_info.act.q[1],right_info.act.q[2],right_info.act.q[3],right_info.act.q[4],right_info.act.q[5]);
-		//rt_printf("L: %f -- %f %f %f %f %f %f\n",t,left_info.act.q[0],left_info.act.q[1],left_info.act.q[2],left_info.act.q[3],left_info.act.q[4],left_info.act.q[5]);
-		// cout<<"TRL1"<<endl;
-		// cout<<mr::TransInv(dualarm.Tbl)*dualarm.Tbr<<endl;
-		// cout<<"TRL2"<<endl;
-		// cout<<Trl<<endl;
-		//rt_printf("loop time : %llu ns \n" , step);
 	}
 }
 

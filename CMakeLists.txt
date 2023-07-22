@@ -12,10 +12,7 @@ cmake_minimum_required(VERSION 3.8)
 # Set variables:
 #   * PROJECT_NAME
 #   * PROJECT_VERSION
-project(ros2_rt_dualarm VERSION 2.0.0 LANGUAGES C CXX)
-find_package(ament_cmake REQUIRED)
-find_package(robot_state_publisher REQUIRED)
-find_package(nav_msgs REQUIRED)
+project(ros2_rt_dualarm_sim VERSION 2.0.0 LANGUAGES C CXX)
 
 # Use MACOSX_RPATH by default on OS X. This was added in CMake 2.8.12 and
 # became default in CMake 3.0. Explicitly setting this policy is necessary to
@@ -54,24 +51,23 @@ set(CMAKE_DEBUG_POSTFIX "d")
 set(CMAKE_MODULE_PATH  ${CMAKE_CURRENT_SOURCE_DIR}/modules)
 set(BUILD_SHARED_LIBS TRUE)
 
-set(Etherlab_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/etherlab)
+
 set(PROJECT_NAME_ROS2_SIM ${PROJECT_NAME}_ros2_sim)
 set(PROJECT_NAME_BULLET_SIM ${PROJECT_NAME}_bullet_sim)
 set(PROJECT_NAME_TRAJ_TEST ${PROJECT_NAME}_traj_test)
 set(PROJECT_NAME_TRAJ_RUCKIG_TEST ${PROJECT_NAME}_traj_ruckig_test)
 
 
-
-
+set(Etherlab_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/etherlab)
 set(BULLET3_HEADER_DIR ${PROJECT_SOURCE_DIR}/include/bullet3)
 set(SIM_ROBOT_HEADER_DIR ${PROJECT_SOURCE_DIR}/include/SimRobot)
+
 #===============================================================================
 # Build options
 #===============================================================================
 #option(BUILD_DOC "Build Documentation" off)
 option(RTIndy7_VERBOSE "Whether print detailed information in CMake process" ON)
 option(RTIndy7_SHARED_LIBS "Build shared libraries" ON)
-option(WITH_CASADI "import for CasADi function" OFF)
 #===============================================================================
 # Build type settings
 #===============================================================================
@@ -128,8 +124,15 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_DEBUG} -pg")
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 
-# set(CTRL_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/Control)
-# set(KDL_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/KDL)
+
+find_package(jsoncpp REQUIRED)
+find_package(ruckig REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(robot_state_publisher REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(pluginlib REQUIRED)
+
+
 set(ECAT_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/EcatSystem)
 set(INTP_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/Interpolator)
 set(MR_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/MR)
@@ -139,8 +142,6 @@ set(FT_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/FTread)
 set(CANLIB_HEADERS_DIR ${PROJECT_SOURCE_DIR}/include/canlib)
 include_directories(${PROJ_INSTALL_INCLUDE_DIR})
 include_directories(
-        # ${CTRL_HEADERS_DIR}
-        # ${KDL_HEADERS_DIR}
         ${BULLET3_HEADER_DIR}        
         ${ECAT_HEADERS_DIR}
         ${INTP_HEADERS_DIR}
@@ -151,209 +152,64 @@ include_directories(
         ${FT_HEADERS_DIR}
         ${CANLIB_HEADERS_DIR}
 )
+# 하위 디렉토리 경로를 리스트로 정의
+set(SUBDIRECTORIES
+    "include/EcatSystem"
+    "include/Interpolator"
+    "include/MR"
+    "include/Network"
+    "include/Robot"
+    "include/bullet3"
+    "include/SimRobot"
+    "include/FTread"
+)
+# for문을 사용하여 각 하위 디렉토리를 추가
+foreach(SUBDIR ${SUBDIRECTORIES})
+    add_subdirectory(${SUBDIR})
+endforeach()
 
-# add_subdirectory(include/Control)
-# add_subdirectory(include/KDL)
-add_subdirectory(include/EcatSystem)
-add_subdirectory(include/Interpolator)
-add_subdirectory(include/MR)
-add_subdirectory(include/Network)
-add_subdirectory(include/Robot)
-add_subdirectory(include/bullet3)
-add_subdirectory(include/SimRobot)
-add_subdirectory(include/FTread)
-
-add_executable(${PROJECT_NAME}
-        src/RTIndy7Client.cpp
+add_executable(${PROJECT_NAME}     src/RTIndy7Client.cpp)
+add_executable(${PROJECT_NAME_ROS2_SIM}    src/TaskSpaceControl/RTIndy7_ros2_sim.cpp)
+add_executable(${PROJECT_NAME_BULLET_SIM}        src/BulletSim/RTIndy7_bullet_sim.cpp)
+add_executable(${PROJECT_NAME_TRAJ_TEST}        src/TrajectoryTest/RTIndy7_traj_test.cpp)
+add_executable(${PROJECT_NAME_TRAJ_RUCKIG_TEST}        src/TrajectoryTest/RTIndy7_traj_ruckig_test.cpp)
+set(PROJECT_NAME_LIST
+    ${PROJECT_NAME}
+    ${PROJECT_NAME_ROS2_SIM}   
+    ${PROJECT_NAME_BULLET_SIM} 
+    ${PROJECT_NAME_TRAJ_TEST}    
+    ${PROJECT_NAME_TRAJ_RUCKIG_TEST}    
 )
-add_executable(${PROJECT_NAME_ROS2_SIM}
-        src/RTIndy7_ros2_sim.cpp
+set(COMMON_LIBRARIES
+    sub::ECAT
+    sub::Interpolator
+    sub::MR
+    sub::NETWORK
+    sub::Robot
+    sub::FTread
+    dl
+    sub::SimRobot
+    pybullet_cpp
+    jsoncpp_lib
+    ruckig
 )
-add_executable(${PROJECT_NAME_BULLET_SIM}
-        src/RTIndy7_bullet_sim.cpp
-)
-add_executable(${PROJECT_NAME_TRAJ_TEST}
-        src/RTIndy7_traj_test.cpp
-)
-add_executable(${PROJECT_NAME_TRAJ_RUCKIG_TEST}
-        src/RTIndy7_traj_ruckig_test.cpp
-)
-
-
-target_link_libraries(${PROJECT_NAME}
-        # sub::CTRL
-        # sub::KDL
-        sub::ECAT
-        sub::Interpolator
-        sub::MR
-        sub::NETWORK
-        sub::Robot
-        sub::FTread
-        dl
-)
-target_link_libraries(${PROJECT_NAME_ROS2_SIM}
-        # sub::CTRL
-        # sub::KDL
-        sub::ECAT
-        sub::Interpolator
-        sub::MR
-        sub::NETWORK
-        sub::Robot
-        sub::FTread
-        dl
-)
-target_link_libraries(${PROJECT_NAME_BULLET_SIM}
-        # sub::CTRL
-        # sub::KDL
-        sub::ECAT
-        sub::Interpolator
-        sub::MR
-        sub::NETWORK
-        sub::Robot
-        sub::SimRobot
-        pybullet_cpp
-        sub::FTread
-        dl
-)
-target_link_libraries(${PROJECT_NAME_TRAJ_TEST}
-        # sub::CTRL
-        # sub::KDL
-        sub::ECAT
-        sub::Interpolator
-        sub::MR
-        sub::NETWORK
-        sub::Robot
-        sub::FTread
-
-        dl
-)
-
-target_link_libraries(${PROJECT_NAME_TRAJ_RUCKIG_TEST}
-        # sub::CTRL
-        # sub::KDL
-        sub::ECAT
-        sub::Interpolator
-        sub::MR
-        sub::NETWORK
-        sub::Robot
-        dl
-)
-
-
-# jsoncpp
-find_package(jsoncpp REQUIRED)
-find_package(ruckig REQUIRED)
-target_link_libraries(${PROJECT_NAME} jsoncpp_lib)
-target_link_libraries(${PROJECT_NAME_ROS2_SIM} jsoncpp_lib)
-target_link_libraries(${PROJECT_NAME_BULLET_SIM} jsoncpp_lib)
-target_link_libraries(${PROJECT_NAME_TRAJ_TEST} jsoncpp_lib ruckig)
-target_link_libraries(${PROJECT_NAME_TRAJ_RUCKIG_TEST} jsoncpp_lib ruckig)
-
+foreach(PROJECT ${PROJECT_NAME_LIST})
+    target_link_libraries(${PROJECT} ${COMMON_LIBRARIES})
+endforeach()
 list(APPEND INCLUDE_DIRS_FOR_DYNAMIC_VIEW ${jSONCPP_INCLUDE_DIRS})
-
 # xenomai
 find_package(Xenomai 3.1.1 REQUIRED NATIVE)
 message(STATUS "Xenomai found with theses skins: ${Xenomai_SKINS}")
 if(Xenomai_FOUND)
-
-    target_include_directories(${PROJECT_NAME} PUBLIC ${KERNELHEADERS_DIR})
-    target_include_directories(${PROJECT_NAME_ROS2_SIM} PUBLIC ${KERNELHEADERS_DIR})
-    target_include_directories(${PROJECT_NAME_BULLET_SIM} PUBLIC ${KERNELHEADERS_DIR})
-    target_include_directories(${PROJECT_NAME_TRAJ_TEST} PUBLIC ${KERNELHEADERS_DIR})
-    target_include_directories(${PROJECT_NAME_TRAJ_RUCKIG_TEST} PUBLIC ${KERNELHEADERS_DIR})
-    
-    foreach(comp_lists ${Xenomai_FOUND_COMP})
-        #message(STATUS "Xenomai ${comp_lists} includes : ${Xenomai_${comp_lists}_INCLUDE_DIRS}" )
-        #message(STATUS "Xenomai ${comp_lists} definitions: ${Xenomai_${comp_lists}_DEFINITIONS}")
-        #message(STATUS "Xenomai ${comp_lists} LIBRARY_DIRS : ${Xenomai_${comp_lists}_LIBRARY_DIRS} ")
-        #message(STATUS "Xenomai ${comp_lists} LIBRARIES : ${Xenomai_${comp_lists}_LIBRARIES}")
-        #message(STATUS "Xenomai ${comp_lists} LDFLAGS : ${Xenomai_${comp_lists}_LDFLAGS}")
-        #message(STATUS "Xenomai ${comp_lists} DL_FLAGS : ${Xenomai_${comp_lists}_DL_FLAGS}")
-
-        target_include_directories(${PROJECT_NAME} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
-        target_include_directories(${PROJECT_NAME_ROS2_SIM} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
-        target_include_directories(${PROJECT_NAME_BULLET_SIM} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
-        target_include_directories(${PROJECT_NAME_TRAJ_TEST} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
-        target_include_directories(${PROJECT_NAME_TRAJ_RUCKIG_TEST} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
-        
-        # target_link_libraries(${PROJECT_NAME} PUBLIC ${Xenomai_${comp_lists}_LIBRARY_DIRS} ${Xenomai_${comp_lists}_LIBRARIES})
-        target_link_libraries(${PROJECT_NAME} ${Xenomai_${comp_lists}_DL_FLAGS})
-        target_link_libraries(${PROJECT_NAME_ROS2_SIM} ${Xenomai_${comp_lists}_DL_FLAGS})
-        target_link_libraries(${PROJECT_NAME_BULLET_SIM} ${Xenomai_${comp_lists}_DL_FLAGS})
-        target_link_libraries(${PROJECT_NAME_TRAJ_TEST} ${Xenomai_${comp_lists}_DL_FLAGS})
-        target_link_libraries(${PROJECT_NAME_TRAJ_RUCKIG_TEST} ${Xenomai_${comp_lists}_DL_FLAGS})
-        
-        set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
-        set_target_properties(${PROJECT_NAME_ROS2_SIM} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
-        set_target_properties(${PROJECT_NAME_BULLET_SIM} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
-        set_target_properties(${PROJECT_NAME_TRAJ_TEST} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
-        set_target_properties(${PROJECT_NAME_TRAJ_RUCKIG_TEST} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
-        
-    endforeach(comp_lists ${Xenomai_SKINS})
+    foreach(PROJECT ${PROJECT_NAME_LIST})
+    target_include_directories(${PROJECT} PUBLIC ${KERNELHEADERS_DIR})
+        foreach(comp_lists ${Xenomai_FOUND_COMP})
+            target_include_directories(${PROJECT} PUBLIC ${Xenomai_${comp_lists}_INCLUDE_DIRS})
+            target_link_libraries(${PROJECT} ${Xenomai_${comp_lists}_DL_FLAGS})
+            set_target_properties(${PROJECT} PROPERTIES COMPILE_FLAGS ${Xenomai_${comp_lists}_DEFINITIONS})
+        endforeach(comp_lists ${Xenomai_SKINS})
+    endforeach()    
 endif(Xenomai_FOUND)
-
-
-# casadi
-if(WITH_CASADI)
-    add_compile_definitions(__CASADI__)
-    find_package(CASADI REQUIRED)
-    if (CASADI_FOUND)
-        MESSAGE(STATUS "CASADI_INCLUDE_DIRS = ${CASADI_INCLUDE_DIR}")
-        MESSAGE(STATUS "CASADI_LIBRARIES = ${CASADI_LIBRARIES}")
-        target_include_directories(${PROJECT_NAME} PUBLIC ${CASADI_INCLUDE_DIR})
-        target_include_directories(${PROJECT_NAME_ROS2_SIM} PUBLIC ${CASADI_INCLUDE_DIR})
-        target_include_directories(${PROJECT_NAME_BULLET_SIM} PUBLIC ${CASADI_INCLUDE_DIR})
-        target_include_directories(${PROJECT_NAME_TRAJ_TEST} PUBLIC ${CASADI_INCLUDE_DIR})
-        target_include_directories(${PROJECT_NAME_TRAJ_RUCKIG_TEST} PUBLIC ${CASADI_INCLUDE_DIR})
-        target_link_libraries(${PROJECT_NAME} ${CASADI_LIBRARIES})
-        target_link_libraries(${PROJECT_NAME_ROS2_SIM} ${CASADI_LIBRARIES})
-        target_link_libraries(${PROJECT_NAME_BULLET_SIM} ${CASADI_LIBRARIES})
-        target_link_libraries(${PROJECT_NAME_TRAJ_TEST} ${CASADI_LIBRARIES})
-        target_link_libraries(${PROJECT_NAME_TRAJ_RUCKIG_TEST} ${CASADI_LIBRARIES})
-    endif ()
-
-    set( INDY7_CASADI
-      indy7_M
-      indy7_Minv
-      indy7_C
-      indy7_G
-      indy7_id
-      indy7_fd
-      indy7_fk
-      indy7_fk_ee
-      indy7_fkrot_ee
-      indy7_J_s
-      indy7_J_b
-      indy7_J_fd
-      indy7_J_id
-    )
-
-    link_directories(
-      "${CMAKE_CURRENT_SOURCE_DIR}/lib/URDF2CASADI"
-    )
-    # target_link_libraries(${PROJECT_NAME} ${INDY7_CASADI})
-endif()
-
-# check if Doxygen is installed
-#find_package(Doxygen)
-#if (DOXYGEN_FOUND)
-#    # set input and output files
-#    set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/ doc/Doxyfile.in)
-#    set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-#
-#    # request to configure the file
-#    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
-#    message("Doxygen build started")
-#
-#    # note the option ALL which allows to build the docs together with the application
-#    add_custom_target( doc_doxygen ALL
-#                       COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
-#                       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-#                       COMMENT "Generating API documentation with Doxygen"
-#                       VERBATIM )
-#else (DOXYGEN_FOUND)
-#    message("Doxygen need to be installed to generate the doxygen documentation")
-#endif (DOXYGEN_FOUND)
 
 #===============================================================================
 # Print build summary
@@ -382,111 +238,37 @@ if(RTIndy7_VERBOSE)
     message(STATUS "")
 endif(RTIndy7_VERBOSE)
 
-find_package(pluginlib REQUIRED)
+set(ament_target_dependencies_list 
+    "robot_state_publisher"
+    "sensor_msgs"
+    "std_msgs"
+    "geometry_msgs"
+    "nav_msgs"
+    "jsoncpp"
+)
+foreach(PROJECT ${PROJECT_NAME_LIST})
+    ament_target_dependencies(${PROJECT} ${ament_target_dependencies_list})
+endforeach()
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD    COMMAND ${CMAKE_COMMAND} -E copy_if_different        ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json lib/${PROJECT_NAME})
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD    COMMAND ${CMAKE_COMMAND} -E copy_if_different        ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json share/${PROJECT_NAME})
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD        COMMAND ${CMAKE_COMMAND} -E copy_if_different            ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json ${CMAKE_CURRENT_SOURCE_DIR}/bin/)        
 
-ament_target_dependencies(
-    ${PROJECT_NAME}
-  "robot_state_publisher"
-  "sensor_msgs"
-  "pluginlib"  
-  "std_msgs"
-  "geometry_msgs"
-  "nav_msgs"
-  "jsoncpp"
-)
-ament_target_dependencies(
-    ${PROJECT_NAME_ROS2_SIM}
-  "robot_state_publisher"
-  "sensor_msgs"  
-  "std_msgs"
-  "pluginlib"  
-  "geometry_msgs"
-  "nav_msgs"
-  "jsoncpp"
-)
-ament_target_dependencies(
-    ${PROJECT_NAME_BULLET_SIM}
-  "robot_state_publisher"
-  "sensor_msgs"  
-  "std_msgs"
-  "pluginlib"  
-  "geometry_msgs"
-  "nav_msgs"
-  "jsoncpp"
-)
-ament_target_dependencies(
-    ${PROJECT_NAME_TRAJ_TEST}
-  "robot_state_publisher"
-  "sensor_msgs"  
-  "std_msgs"
-  "geometry_msgs"
-  "nav_msgs"
-  "jsoncpp"
-)
-ament_target_dependencies(
-    ${PROJECT_NAME_TRAJ_RUCKIG_TEST}
-  "robot_state_publisher"
-  "sensor_msgs"  
-  "std_msgs"
-  "geometry_msgs"
-  "nav_msgs"
-  "jsoncpp"
-)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json lib/${PROJECT_NAME})
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json share/${PROJECT_NAME})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/info/MR_info.json ${CMAKE_CURRENT_SOURCE_DIR}/bin/)        
-	install(TARGETS ${PROJECT_NAME}
-		DESTINATION lib/${PROJECT_NAME})
-    install(TARGETS ${PROJECT_NAME_ROS2_SIM}
-		DESTINATION lib/${PROJECT_NAME})        
-    install(TARGETS ${PROJECT_NAME_BULLET_SIM}
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)         
-        install(TARGETS ${PROJECT_NAME_TRAJ_TEST}
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)       
-        install(TARGETS ${PROJECT_NAME_TRAJ_RUCKIG_TEST}
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)                     
-    install(TARGETS ${PROJECT_NAME}
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)      
-        install(TARGETS ${PROJECT_NAME_ROS2_SIM}
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)                    
-	install(
-		DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/urdf/
-		DESTINATION share/${PROJECT_NAME}
-	)
-	install(
-		DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/meshes/visual/
-		DESTINATION share/${PROJECT_NAME}/meshes/visual/
-	)
-	install(
-		DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/meshes/collision/
-		DESTINATION share/${PROJECT_NAME}/meshes/collision/
-	)
-	install(
-		DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/launch/
-		DESTINATION share/${PROJECT_NAME}
-	)
-	install(
-		DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/info/
-		DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../
-	)
-      
-        if(BUILD_TESTING)
-        find_package(ament_lint_auto REQUIRED)
-        # the following line skips the linter which checks for copyrights
-        # comment the line when a copyright and license is added to all source files
-        set(ament_cmake_copyright_FOUND TRUE)
-        # the following line skips cpplint (only works in a git repo)
-        # comment the line when this package is in a git repo and when
-        # a copyright and license is added to all source files
-        set(ament_cmake_cpplint_FOUND TRUE)
-        ament_lint_auto_find_test_dependencies()
-      endif()
-      
+foreach(PROJECT ${PROJECT_NAME_LIST})
+    install(TARGETS ${PROJECT}    DESTINATION lib/${PROJECT_NAME})
+    install(TARGETS ${PROJECT_NAME_BULLET_SIM}    DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin/)   
+endforeach()
+install(DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/urdf/    DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/meshes/visual/    DESTINATION share/${PROJECT_NAME}/meshes/visual/)
+install(DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/meshes/collision/    DESTINATION share/${PROJECT_NAME}/meshes/collision/)
+install(DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/launch/    DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR}/info/   DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../)
+
+if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    set(ament_cmake_copyright_FOUND TRUE)
+    set(ament_cmake_cpplint_FOUND TRUE)
+    ament_lint_auto_find_test_dependencies()
+endif()
+
 
 ament_package()

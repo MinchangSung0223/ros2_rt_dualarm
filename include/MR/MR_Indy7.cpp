@@ -172,7 +172,10 @@ Jacobian MR_Indy7::J_b(JVec q)
 {
     return mr::JacobianBody(this->Blist, q);
 }
-
+Jacobian MR_Indy7::Jdot_b(mr::Jacobian J_b,JVec qdot)
+{
+    return mr::dJacobianBody(J_b, qdot);
+}
 SE3 MR_Indy7::T_s(JVec q)
 {
     return mr::FKinSpace(this->M, this->Slist, q);

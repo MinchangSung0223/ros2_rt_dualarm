@@ -1,0 +1,1 @@
+/root/ros2_foxy/build/ros2_rt_dualarm_sim/ament_cmake_environment_hooks/local_setup.zsh

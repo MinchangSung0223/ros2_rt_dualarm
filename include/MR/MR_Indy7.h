@@ -47,7 +47,7 @@ public:
     mr::JVec Gvec(JVec q);
     mr::Jacobian J_s(JVec q);
     mr::Jacobian J_b(JVec q);
-
+    Jacobian Jdot_b(mr::Jacobian J_b,JVec qdot);
     mr::SE3 T_s(JVec q);
     mr::SE3 T_b(JVec q);
 
