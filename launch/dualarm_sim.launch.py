@@ -11,10 +11,10 @@ def generate_launch_description():
 
     urdf_file_name = 'dual_arm.urdf.xml'
     urdf = os.path.join(
-        get_package_share_directory('ros2_rt_dualarm_sim'),
+        get_package_share_directory('ros2_rt_dualarm'),
         urdf_file_name)
     rviz_config_file = os.path.join(
-        get_package_share_directory('ros2_rt_dualarm_sim'), 'indy7.rviz')        
+        get_package_share_directory('ros2_rt_dualarm'), 'indy7.rviz')        
     with open(urdf, 'r') as infp:
         robot_desc = infp.read()
 
@@ -31,9 +31,9 @@ def generate_launch_description():
             parameters=[{'use_sim_time': use_sim_time, 'robot_description': robot_desc}],
             arguments=[urdf]),
         Node(
-            package='ros2_rt_dualarm_sim',
-            executable='ros2_rt_dualarm_sim_ros2_sim',
-            name='ros2_rt_dualarm_sim_ros2_sim',
+            package='ros2_rt_dualarm',
+            executable='ros2_rt_dualarm_ros2_sim',
+            name='ros2_rt_dualarm_ros2_sim',
             output='screen'),
         Node(
             package='rviz2',

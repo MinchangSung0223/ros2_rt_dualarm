@@ -12,7 +12,7 @@ cmake_minimum_required(VERSION 3.8)
 # Set variables:
 #   * PROJECT_NAME
 #   * PROJECT_VERSION
-project(ros2_rt_dualarm_sim VERSION 2.0.0 LANGUAGES C CXX)
+project(ros2_rt_dualarm VERSION 2.0.0 LANGUAGES C CXX)
 
 # Use MACOSX_RPATH by default on OS X. This was added in CMake 2.8.12 and
 # became default in CMake 3.0. Explicitly setting this policy is necessary to
