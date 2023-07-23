@@ -984,33 +984,40 @@ void readFT_run(void *arg){
 		unsigned int dlc;
 		unsigned int flag;
 		unsigned long time;
-		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, 1);
+		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01){
 			init_FT_R[0] = (msg[0]*256.0+msg[1])/100.0-300.0;
 			init_FT_R[1] =  (msg[2]*256.0+msg[3])/100.0-300.0;
 			init_FT_R[2] = (msg[4]*256.0+msg[5])/100.0-300.0;   	        
 		}
-		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, 1);
+		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01+0x01){
 			init_FT_R[3]  = (msg[0]*256+msg[1])/500.0-50.0;
 			init_FT_R[4]  = (msg[2]*256+msg[3])/500.0-50.0;
 			init_FT_R[5]  = (msg[4]*256+msg[5])/500.0-50.0;
 		}
-		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, 1);
+		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01){
 			init_FT_L[0] = (msg[0]*256.0+msg[1])/100.0-300.0;
 			init_FT_L[1] =  (msg[2]*256.0+msg[3])/100.0-300.0;
 			init_FT_L[2] = (msg[4]*256.0+msg[5])/100.0-300.0;   	        
 		}
-		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, 1);
+		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01+0x01){
 			init_FT_L[3]  = (msg[0]*256+msg[1])/500.0-50.0;
 			init_FT_L[4]  = (msg[2]*256+msg[3])/500.0-50.0;
 			init_FT_L[5]  = (msg[4]*256+msg[5])/500.0-50.0;
 		}
 	}
-				
-	rt_task_set_periodic(NULL, TM_NOW, cycle_ns*10);
+	double    prev_FT_R[6],prev_FT_L[6];
+	double    filtered_FT_R[6],filtered_FT_L[6];
+	for(int jj = 0;jj<6;jj++){
+			filtered_FT_R[jj]=init_FT_R[jj];
+			filtered_FT_L[jj]=init_FT_L[jj];
+	}
+		
+	
+	rt_task_set_periodic(NULL, TM_NOW, cycle_ns);
 	while(run){
 		rt_task_wait_period(NULL);
 		long id;
@@ -1019,35 +1026,40 @@ void readFT_run(void *arg){
 		unsigned int flag;
 		unsigned long time;
 		double    FT_R[6],FT_L[6];
-		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, 1);
+		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01){
 			FT_R[0] = (msg[0]*256.0+msg[1])/100.0-300.0-init_FT_R[0];
 			FT_R[1] =  (msg[2]*256.0+msg[3])/100.0-300.0-init_FT_R[1];
 			FT_R[2] = (msg[4]*256.0+msg[5])/100.0-300.0-init_FT_R[2];   	        
 		}
-		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time, 1);
+		stat_R = canReadWait(hnd_R, &id, &msg, &dlc, &flag, &time,-1);
 		if(id == 0x01+0x01){
 			FT_R[3]  = (msg[0]*256+msg[1])/500.0-50.0-init_FT_R[3];
 			FT_R[4]  = (msg[2]*256+msg[3])/500.0-50.0-init_FT_R[4];
 			FT_R[5]  = (msg[4]*256+msg[5])/500.0-50.0-init_FT_R[5];
 		}
-		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, 1);
+		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01){
 			FT_L[0] = (msg[0]*256.0+msg[1])/100.0-300.0-init_FT_L[0];
 			FT_L[1] =  (msg[2]*256.0+msg[3])/100.0-300.0-init_FT_L[1];
 			FT_L[2] = (msg[4]*256.0+msg[5])/100.0-300.0-init_FT_L[2];   	        
 		}
-		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, 1);
+		stat_L = canReadWait(hnd_L, &id, &msg, &dlc, &flag, &time, -1);
 		if(id == 0x01+0x01){
 			FT_L[3]  = (msg[0]*256+msg[1])/500.0-50.0-init_FT_L[3];
 			FT_L[4]  = (msg[2]*256+msg[3])/500.0-50.0-init_FT_L[4];
 			FT_L[5]  = (msg[4]*256+msg[5])/500.0-50.0-init_FT_L[5];
 		}		
+		double alpha = 0.99;
 		for(int i=0;i<6;i++){
-			right_info.act.F(i) = FT_R[i];
-			left_info.act.F(i) = FT_L[i];
+			filtered_FT_R[i] = (alpha)*filtered_FT_R[i]+(1-alpha)*FT_R[i];
+			filtered_FT_L[i] = (alpha)*filtered_FT_L[i]+(1-alpha)*FT_L[i];
+			right_info.act.F(i) = std::isfinite(filtered_FT_R[i]) ? filtered_FT_R[i]: 0.0;
+			left_info.act.F(i) = std::isfinite(filtered_FT_L[i]) ? filtered_FT_L[i]: 0.0;
 		}
+			
 		
+
 	}
 	
 }
@@ -1092,6 +1104,14 @@ void RTIndy7_run(void *arg)
 	qT_r<<0.14558084, 0.813371 ,1.3075236,0.614656,1.03065,-0.0693011;
 	JVec qT_l =JVec::Zero();
 	qT_l<<-0.14558084, -0.813371 ,-1.3075236,-0.614656,-1.03065,0.0693011;
+	mr::SE3 X_r_des = mr_indy7_r.T_b(qT_r);
+	mr::SE3 X_l_des = mr_indy7_l.T_b(qT_l);
+	mr::Vector6d V_r_des = mr::Vector6d::Zero();
+	mr::Vector6d dV_r_des = mr::Vector6d::Zero();
+	mr::Vector6d F_r_des = mr::Vector6d::Zero();	
+	mr::Vector6d V_l_des = mr::Vector6d::Zero();
+	mr::Vector6d dV_l_des = mr::Vector6d::Zero();
+	mr::Vector6d F_l_des = mr::Vector6d::Zero();	
 	while (run)
 	{
 		beginCycle = rt_timer_read();
@@ -1117,6 +1137,7 @@ void RTIndy7_run(void *arg)
 				}
 			}
 		beginCompute = rt_timer_read();
+		
 		if(system_ready){
 			// Trajectory Generation
 			//trajectory_generation();
@@ -1137,10 +1158,51 @@ void RTIndy7_run(void *arg)
 			
 			//right_info.des.tau = tauVec_r;
 			//left_info.des.tau = tauVec_l;
+			
+			mr::SE3 X_r = mr_indy7_r.T_b(right_info.act.q);
+			mr::SE3 X_l = mr_indy7_l.T_b(left_info.act.q);
+			mr::Jacobian Jb_r = mr_indy7_r.J_b(right_info.act.q);
+			mr::Jacobian Jb_l = mr_indy7_l.J_b(left_info.act.q);
+			mr::Jacobian Jbdot_r = mr_indy7_r.Jdot_b(Jb_r,right_info.act.q_dot);
+			mr::Jacobian Jbdot_l = mr_indy7_l.Jdot_b(Jb_l,left_info.act.q_dot);
+			mr::Vector6d Ftip_r = mr::Vector6d::Zero();
+			mr::Vector6d Ftip_l = mr::Vector6d::Zero();
+//			for(int jj = 0;jj<6;jj++)
+//			 	Ftip_r(jj)= right_info.act.F(jj);
+			Ftip_r(5)= right_info.act.F(2);
+			Ftip_r(4)= right_info.act.F(1);
+			Ftip_r(3)= right_info.act.F(0);
+
+			Ftip_r(0)= right_info.act.F(3);
+			Ftip_r(1)= right_info.act.F(4);
+			Ftip_r(2)= right_info.act.F(5);
+
+
+			Ftip_l(5)= left_info.act.F(2);
+			Ftip_l(4)= left_info.act.F(1);
+			Ftip_l(3)= left_info.act.F(0);
+
+			Ftip_l(0)= left_info.act.F(3);
+			Ftip_l(1)= left_info.act.F(4);
+			Ftip_l(2)= left_info.act.F(5);
+
+			SE3 T_ =SE3::Identity();
+			T_ << 0 ,-1 ,0 ,0 ,
+			      1,0,0,0,
+				  0,0,1,0,
+				  0,0,0,1;
+			Ftip_r = Adjoint(T_).transpose()*Ftip_r;	  
+			Ftip_l = Adjoint(T_).transpose()*Ftip_l;	  
+			//mr::JVec tau_r = mr_indy7_r.ImpedanceControl(right_info.act.q,right_info.act.q_dot,Ftip_r,X_r,Jb_r,Jbdot_r,X_r_des,V_r_des,dV_r_des, F_r_des);
+			//mr::JVec tau_l = mr_indy7_l.ImpedanceControl(left_info.act.q,left_info.act.q_dot,Ftip_l,X_l,Jb_l,Jbdot_l,X_l_des,V_l_des,dV_l_des, F_l_des);
+			//right_info.des.tau = tau_r;
+			//left_info.des.tau = tau_l;
+			//right_info.des.tau = mr_indy7_r.HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r)+Jb_r.transpose()*Ftip_r;
+			//left_info.des.tau = mr_indy7_l.HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l)+Jb_l.transpose()*Ftip_l;
 			right_info.des.tau = mr_indy7_r.HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r);
 			left_info.des.tau = mr_indy7_l.HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l);
 			//right_info.des.tau =tauVec_r;
-			//left_info.des.tau =tauVec_r;			
+			//left_info.des.tau =tauVec_l;			
 			// //mr_indy7.saturationMaxTorque(info.des.tau,MAX_TORQUES);
 		
 		}

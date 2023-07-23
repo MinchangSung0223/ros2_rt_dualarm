@@ -39,6 +39,11 @@ public:
     mr::Matrix6d Hinf_Kv;
     mr::Matrix6d Hinf_Ki;
     mr::Matrix6d Hinf_K_gamma;
+    mr::Matrix6d Imp_A;
+    mr::Matrix6d invImp_A;
+    mr::Matrix6d Imp_D;
+    mr::Matrix6d Imp_K;
+    
 
     void MRSetup();
 
@@ -56,9 +61,11 @@ public:
     void saturationMaxTorque(JVec &torque, JVec MAX_TORQUES);
     mr::JVec ComputedTorquePIDControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec& eint);
     mr::JVec HinfControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec ddq_des,JVec& eint);
+    JVec ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des);
     JVec VelQuadraticForces(const  JVec q,JVec dq);
     MassMat MassMatrix(const  JVec q);
     JVec ForwardDynamics(const JVec q,const JVec qdot,const JVec tau,const Vector6d Ftip);
+    
     
 };
 

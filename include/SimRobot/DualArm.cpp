@@ -20,6 +20,24 @@ void DualArm::reset_q(class b3RobotSimulatorClientAPI_NoDirect* sim,relmr::JVec 
     this->R->reset_q(sim,q.segment<6>(0));
     this->L->reset_q(sim,q.segment<6>(6));
 }
+relmr::Vector6d DualArm::get_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,int flag){
+    relmr::Vector6d FT_R = this->R->get_FT(sim);
+    relmr::Vector6d FT_L = this->L->get_FT(sim);
+    if(flag==0) {
+        return FT_R;
+    }
+    if(flag==1) {
+        return FT_L;
+    }
+}
+void DualArm::apply_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,int flag,relmr::Vector6d Fapply){
+    if(flag ==0){
+        this->R->apply_ext_FT(sim,Fapply);
+    }else{
+        this->L->apply_ext_FT(sim,Fapply);
+    }
+    
+}
 relmr::JVec DualArm::get_q(class b3RobotSimulatorClientAPI_NoDirect* sim){
     relmr::JVec q = relmr::JVec::Zero();
     mr::JVec q_r = this->R->get_q(sim);

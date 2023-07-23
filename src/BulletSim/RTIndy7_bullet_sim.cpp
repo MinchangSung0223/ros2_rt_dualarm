@@ -229,26 +229,27 @@ void RTIndy7_run(void *arg)
 	mr::Vector6d Ftip_l = mr::Vector6d::Zero();
 	mr::Vector6d F_l_des = mr::Vector6d::Zero();
 	mr::Matrix6d A = mr::Matrix6d::Identity();
-	A(0,0) = 100.0;
-	A(1,1) = 100.0;
-	A(2,2) = 100.0;
-	A(3,3) = 100.0;
-	A(4,4) = 100.0;
-	A(5,5) = 100.0;
+	double scale =1;
+	A(0,0) = 1.0*scale;
+	A(1,1) = 1.0*scale;
+	A(2,2) = 1.0*scale;
+	A(3,3) = 1.0*scale;
+	A(4,4) = 1.0*scale;
+	A(5,5) = 1.0*scale;
 	mr::Matrix6d D = mr::Matrix6d::Identity();
-	D(0,0) = 40.0;
-	D(1,1) = 40.0;
-	D(2,2) = 40.0;
-	D(3,3) = 40.0;
-	D(4,4) = 40.0;
-	D(5,5) = 40.0;	
+	D(0,0) = 20.0*scale;
+	D(1,1) = 20.0*scale;
+	D(2,2) = 20.0*scale;
+	D(3,3) = 20.0*scale;
+	D(4,4) = 20.0*scale;
+	D(5,5) = 20.0*scale;	
 	mr::Matrix6d K = mr::Matrix6d::Identity();
-	K(0,0) = 1.0;
-	K(1,1) = 1.0;
-	K(2,2) = 1.0;
-	K(3,3) = 1.0;
-	K(4,4) = 1.0;
-	K(5,5) = 1.0;	
+	K(0,0) = 100.0*scale;
+	K(1,1) = 100.0*scale;
+	K(2,2) = 100.0*scale;
+	K(3,3) = 100.0*scale;
+	K(4,4) = 100.0*scale;
+	K(5,5) = 100.0*scale;	
 	mr::Matrix6d invA = A.inverse();
 	mr::Vector6d dV_l_des = mr::Vector6d::Zero();
 	while (t<Tf)
@@ -270,6 +271,13 @@ void RTIndy7_run(void *arg)
 		mr::Vector6d V_l =Jb_l*qdot_l;
 		mr::Vector6d V_l_err = V_l_des - Adjoint(invX_l_err)*V_l;
 		//Ftip_l = mr_indy7_l. //get FTSensor
+		mr::Vector6d Fapply = mr::Vector6d::Zero();
+		if(t>5 && t<5.01)
+			Fapply<< 0,0,0,0,0,1;
+
+
+		robot->apply_FT(&sim,1,Fapply);
+		Ftip_l = Fapply;
 		mr::Vector6d F_l_err = 0.5*(F_l_des - Adjoint(X_l_err)*Ftip_l);
 		mr::Vector6d lambda_l = se3ToVec(MatrixLog6(X_l_err));
 		mr::Vector6d dlambda_l = dlog6(-lambda_l)*V_l_err;
@@ -282,8 +290,10 @@ void RTIndy7_run(void *arg)
 		mr::Matrix6d KP = dlog6(-lambda_l)*invA*K*dexp6(-lambda_l);
 		mr::Matrix6d KG = dlog6(-lambda_l)*invA*dlog6(-lambda_l).transpose();
 
-		mr::Vector6d ddlambda_ref_l = - KV*dlambda_l - KP*lambda_l + KG*gamma_l;
-		mr::Vector6d  dV_ref_l = Adjoint(X_l_err)*(dV_l_des + ad(V_l_err)*V_l_des - dexp6(-lambda_l)*ddlambda_ref_l - ddexp6(-lambda_l,-dlambda_l)*dlambda_l);
+		mr::Vector6d ddlambda_ref_l = -KV*dlambda_l -KP*lambda_l + KG*gamma_l;
+		mr::Vector6d  dV_ref_l = Adjoint(X_l_err)*(dV_l_des- dexp6(-lambda_l)*ddlambda_ref_l  + ad(V_l_err)*Adjoint(invX_l_err)*V_l_des - ddexp6(-lambda_l,-dlambda_l)*dlambda_l);
+		double eps = 0.001;
+		//mr::JVec ddq_ref_l = Jb_l.transpose()*(Jb_l*Jb_l.transpose()+eps*Matrix6d::Identity()).inverse()*(dV_ref_l - Jdotb_l*qdot_l);
 		mr::JVec ddq_ref_l = Jb_l.inverse()*(dV_ref_l - Jdotb_l*qdot_l);
 		relmr::MassMat Mmat = dualarm.MassMatrix(q);	
 		relmr::JVec C = dualarm.VelQuadraticForces(q,qdot);
@@ -292,8 +302,16 @@ void RTIndy7_run(void *arg)
 		mr::JVec C_l = C.segment<6>(6);
 		mr::JVec G_l = G.segment<6>(6);
 
-		mr::JVec tau_c = Mmat_l*ddq_ref_l + C_l+G_l + Jb_l.transpose()*(-Ftip_l);
-		mr::JVec tau = tau_c + Jb_l.transpose()*Ftip_l;
+		mr::JVec tau_c = Mmat_l*ddq_ref_l + C_l+G_l;
+		mr::JVec tau = tau_c+Jb_l.transpose()*(Ftip_l);
+
+		static int print_cnt = 0;
+		if(++print_cnt>100){
+			cout<<t<<"--"<<ddq_ref_l.transpose()<<endl;
+			print_cnt = 0;
+		}
+		mr::JVec tau_L = dualarm.L->ImpedanceControl(q_l,qdot_l,Ftip_l,X_l,Jb_l,Jdotb_l,X_des_l,V_l_des,dV_l_des, F_l_des);
+
 		//mr::JVec tau= C_l+G_l ;
 		//eint += (q_des-q)*dt;
 		//relmr::JVec HinfTorq = dualarm.HinfControlSim(q,qdot,q_des,qdot_des,qddot_des,eint);
@@ -301,7 +319,7 @@ void RTIndy7_run(void *arg)
 
 
 		relmr::JVec tau_list = G;
-		tau_list.segment<6>(6) = tau;
+		tau_list.segment<6>(6) = tau_L;
 		robot->set_torque(&sim,tau_list,max_torque);
 		sim.stepSimulation();
 		// Logging
@@ -310,11 +328,18 @@ void RTIndy7_run(void *arg)
 		right_info.des.q = q_des.segment<6>(0);
 		right_info.des.q_dot = qdot_des.segment<6>(0);
 		right_info.des.q_ddot = qddot_des.segment<6>(0);
+		
 		left_info.act.q=q.segment<6>(6);
 		left_info.act.q_dot = qdot.segment<6>(6);
 		left_info.des.q = q_des.segment<6>(6);
 		left_info.des.q_dot = qdot_des.segment<6>(6);
 		left_info.des.q_ddot = qddot_des.segment<6>(6);
+		left_info.act.F(0) = Ftip_l(0);
+		left_info.act.F(1) = Ftip_l(1);
+		left_info.act.F(2) = Ftip_l(2);
+		left_info.act.F(3) = Ftip_l(3);
+		left_info.act.F(4) = Ftip_l(4);
+		left_info.act.F(5) = Ftip_l(5);
 		now = rt_timer_read();
 		step = now-previous;
 		t+=dt;
@@ -338,6 +363,7 @@ void print_run(void *arg)
 	while (run)
 	{
 		rt_task_wait_period(NULL); //wait for next cycle
+		//rt_printf("Ftip L : %.3f \t%.3f \t%.3f \t%.3f \t%.3f \t%.3f \n",left_info.act.F(0),left_info.act.F(1),left_info.act.F(2),left_info.act.F(3),left_info.act.F(4),left_info.act.F(5));
 	}
 }
 

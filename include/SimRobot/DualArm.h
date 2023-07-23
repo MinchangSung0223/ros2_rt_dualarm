@@ -28,6 +28,8 @@ public:
 	relmr::JVec get_qdot(class b3RobotSimulatorClientAPI_NoDirect* sim);
 	relmr::JVec get_q_rel(class b3RobotSimulatorClientAPI_NoDirect* sim);
 	relmr::JVec get_qdot_rel(class b3RobotSimulatorClientAPI_NoDirect* sim);
+	relmr::Vector6d get_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,int flag);
+	void apply_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,int flag,relmr::Vector6d Fapply);
 	void reset_q(class b3RobotSimulatorClientAPI_NoDirect* sim,relmr::JVec q);
 	void set_torque(class b3RobotSimulatorClientAPI_NoDirect* sim, relmr::JVec torque,relmr::JVec  max_torques);
 	virtual ~DualArm();

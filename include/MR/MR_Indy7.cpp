@@ -56,6 +56,29 @@ MR_Indy7::MR_Indy7() {
     this->Hinf_Kp = mr::Matrix6d::Zero();
     this->Hinf_Kv = mr::Matrix6d::Zero();
     this->Hinf_K_gamma = mr::Matrix6d::Zero();
+    double scale = 100000.0;
+    this->Imp_A = 1*mr::Matrix6d::Identity();
+    Imp_A(0,0)= 1.0*scale;
+    Imp_A(1,1)= 1.0*scale;
+    Imp_A(2,2)= 1.0*scale;
+    Imp_A(3,3)= 10.0*scale;
+    Imp_A(4,4)= 10.0*scale;
+    Imp_A(5,5)= 10.0*scale;
+    this->Imp_D = 20*mr::Matrix6d::Identity();
+    Imp_D(0,0)= 20.0*scale;
+    Imp_D(1,1)= 20.0*scale;
+    Imp_D(2,2)= 20.0*scale;
+    Imp_D(3,3)= 200.0*scale;
+    Imp_D(4,4)= 200.0*scale;
+    Imp_D(5,5)= 200.0*scale;
+    this->Imp_K = 100*mr::Matrix6d::Identity();
+    Imp_K(0,0)= 100.0*scale;
+    Imp_K(1,1)= 100.0*scale;
+    Imp_K(2,2)= 100.0*scale;
+    Imp_K(3,3)= 1000.0*scale;
+    Imp_K(4,4)= 1000.0*scale;
+    Imp_K(5,5)= 1000.0*scale;
+    this->invImp_A = this->Imp_A.inverse();
 
     for (int i=0; i<6; ++i)
     {
@@ -225,6 +248,48 @@ JVec MR_Indy7::HinfControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec ddq_des,J
     JVec torq = Mmat*ddq_ref+C+G+(Hinf_K_gamma)*(edot + Hinf_Kv*e + Hinf_Kp*eint);
     return torq;
 }
+
+JVec MR_Indy7::ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des){
+    
+        SE3 invX = TransInv(X);
+        se3 X_err = invX*X_des;
+        se3 invX_err = TransInv(X_err);
+        Vector6d V = Jb*qdot;
+        Vector6d V_err_ = V_des - Adjoint(invX_err)*V;
+        Vector6d V_err,F_err;
+        V_err<< V_err_(3),V_err_(4),V_err_(5), V_err_(0), V_err_(1), V_err_(2);
+        Vector6d F_err_ = 0.5*(F_des - Adjoint(X_err)*Ftip);
+        F_err<< F_err_(3),F_err_(4),F_err_(5), F_err_(0), F_err_(1), F_err_(2);
+        Vector6d lambda_ = se3ToVec(MatrixLog6(X_err));
+        Vector6d lambda;
+        lambda<< lambda_(3),lambda_(4),lambda_(5), lambda_(0), lambda_(1), lambda_(2);
+		Vector6d dlambda = dlog6(-lambda)*V_err;
+		Vector6d gamma = dexp6(-lambda).transpose()*F_err;
+
+		Matrix6d A_lambda = dexp6(-lambda).transpose()*Imp_A*dexp6(-lambda);
+		Matrix6d D_lambda = dexp6(-lambda).transpose()*Imp_D*dexp6(-lambda) + A_lambda*ddlog6(-lambda,-dlambda);
+		Matrix6d K_lambda = dexp6(-lambda).transpose()*Imp_K*dexp6(-lambda);
+		Matrix6d KV = dlog6(-lambda)*(invImp_A*Imp_D*dexp6(-lambda) + dexp6(-lambda)*ddlog6(-lambda,-dlambda));
+		Matrix6d KP = dlog6(-lambda)*invImp_A*Imp_K*dexp6(-lambda);
+		Matrix6d KG = dlog6(-lambda)*invImp_A*dlog6(-lambda).transpose();
+
+        Vector6d ddlambda_ref = -KV*dlambda -KP*lambda + KG*gamma;
+		Vector6d dV_ref_ = Adjoint(X_err)*(Vdot_des- dexp6(-lambda)*ddlambda_ref  + ad(V_err)*Adjoint(invX_err)*V_des - ddexp6(-lambda,-dlambda)*dlambda);
+        Vector6d dV_ref;
+        dV_ref<< dV_ref_(3),dV_ref_(4),dV_ref_(5), dV_ref_(0), dV_ref_(1), dV_ref_(2);
+        double eps = 0.001;
+        JVec ddq_ref = Jb.transpose()*(Jb*Jb.transpose()+eps*Matrix6d::Identity()).inverse()*(dV_ref - Jbdot*qdot);
+        //JVec ddq_ref = Jb.inverse()*(dV_ref - Jbdot*qdot);
+        MassMat Mmat = this->MassMatrix(q);
+        JVec C = this->Cvec(q,qdot);
+        JVec G = this->Gravity(q);
+        JVec tau_c = Mmat*ddq_ref + C+G ;
+        JVec tau = tau_c + Jb.transpose()*Ftip;
+        //JVec tau = tau_c + Jb.transpose()*Ftip;
+
+    return tau;
+}
+
 
 void MR_Indy7::MRSetup(){
 	Json::Value rootr;

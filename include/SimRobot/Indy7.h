@@ -29,7 +29,7 @@ public:
 	SE3 get_eef_pose(class b3RobotSimulatorClientAPI_NoDirect* sim);	
 	void reset_q(class b3RobotSimulatorClientAPI_NoDirect* sim,JVec q);
 	Vector6d get_FT(class b3RobotSimulatorClientAPI_NoDirect* sim);
-	void apply_ext_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,JVec FT);
+	void apply_ext_FT(class b3RobotSimulatorClientAPI_NoDirect* sim,Vector6d FT);
 	int get_actuated_joint_num(){
 		return this->actuated_joint_num;
 	};
