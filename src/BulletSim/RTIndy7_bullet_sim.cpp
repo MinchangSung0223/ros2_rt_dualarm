@@ -209,49 +209,35 @@ void RTIndy7_run(void *arg)
 	step = 0;
 	relmr::JVec eint = relmr::JVec::Zero();
 	relmr::JVec q_init;
-	q_init<<-0.0, 0 ,0, 0, 0,  0.0695,0.3531 , 1.1645  ,1.2237 , 0.788  , 0.723 , -0.0696;
+	q_init<<-0.3531 , -1.1645  ,-1.2237 , -0.788  , -0.723 , 0.0696,0.3531 , 1.1645  ,1.2237 , 0.788  , 0.723 , -0.0696;
 	q_init = -q_init;
 	sim.setTimeOut(0.0009);
 	robot->reset_q(&sim,q_init);
 	sim.stepSimulation();
 	
 	relmr::JVec max_torque;
-	max_torque<<1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000;
+	max_torque<<1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000; 
 	relmr::JVec q_next=relmr::JVec::Random();
-	int trajType = 0; 
-	traj.addRelativeJointTrajectory(q_init,q_next,relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),relmr::JVec::Zero(),0,2,dt,trajType);
 	relmr::JVec q_des = relmr::JVec::Zero();
 	relmr::JVec qdot_des = relmr::JVec::Zero();
 	relmr::JVec qddot_des = relmr::JVec::Zero();			
-	Tf = 20;
-	SE3 X_des_l =  mr_indy7_l.T_b(q_init.segment<6>(6));
+	Tf = 5;
+	dualarm.FKinBody(q_init,relmr::JVec::Zero());
+	mr::SE3 X_move = mr::SE3::Identity();
+	X_move(2,3) = X_move(2,3)-0.2;
+	mr::SE3 newTbl =dualarm.Tbl*X_move;
+	mr::SE3 newTbr =dualarm.Tbr*X_move;
+	mr::SE3 X_l_des = TransInv(dualarm.Tbl0)* newTbl ;
+	mr::SE3 X_r_des = TransInv(dualarm.Tbr0) * newTbr;
 	mr::Vector6d V_l_des = mr::Vector6d::Zero();
-	mr::Vector6d Ftip_l = mr::Vector6d::Zero();
+	mr::Vector6d V_r_des = mr::Vector6d::Zero();
+	mr::Vector6d Vdot_l_des = mr::Vector6d::Zero();
+	mr::Vector6d Vdot_r_des = mr::Vector6d::Zero();
 	mr::Vector6d F_l_des = mr::Vector6d::Zero();
-	mr::Matrix6d A = mr::Matrix6d::Identity();
-	double scale =1;
-	A(0,0) = 1.0*scale;
-	A(1,1) = 1.0*scale;
-	A(2,2) = 1.0*scale;
-	A(3,3) = 1.0*scale;
-	A(4,4) = 1.0*scale;
-	A(5,5) = 1.0*scale;
-	mr::Matrix6d D = mr::Matrix6d::Identity();
-	D(0,0) = 20.0*scale;
-	D(1,1) = 20.0*scale;
-	D(2,2) = 20.0*scale;
-	D(3,3) = 20.0*scale;
-	D(4,4) = 20.0*scale;
-	D(5,5) = 20.0*scale;	
-	mr::Matrix6d K = mr::Matrix6d::Identity();
-	K(0,0) = 100.0*scale;
-	K(1,1) = 100.0*scale;
-	K(2,2) = 100.0*scale;
-	K(3,3) = 100.0*scale;
-	K(4,4) = 100.0*scale;
-	K(5,5) = 100.0*scale;	
-	mr::Matrix6d invA = A.inverse();
-	mr::Vector6d dV_l_des = mr::Vector6d::Zero();
+	mr::Vector6d F_r_des = mr::Vector6d::Zero();
+	mr::Vector6d Ftip_l = mr::Vector6d::Zero();
+	mr::Vector6d Ftip_r = mr::Vector6d::Zero();
+
 	while (t<Tf)
 	{
 		rt_task_wait_period(NULL); 	//wait for next cycle
@@ -259,66 +245,30 @@ void RTIndy7_run(void *arg)
 		relmr::JVec q = robot->get_q(&sim);
 		relmr::JVec qdot = robot->get_qdot(&sim);
 		relmr::JVec q_rel = dualarm.get_q_rel(q);
-		mr::JVec q_l = q.segment<6>(6);
-		mr::JVec qdot_l = qdot.segment<6>(6);
-		SE3 X_l = mr_indy7_l.T_b(q_l);
-		mr::Jacobian Jb_l = mr_indy7_l.J_b(q_l);
-		mr::Jacobian Jdotb_l = mr_indy7_l.Jdot_b(Jb_l,qdot_l);
-		SE3 invX_l = mr::TransInv(X_l);
-		mr::Vector6d lambda_act_l = mr::se3ToVec(MatrixLog6(X_l));
-		mr::SE3 X_l_err = invX_l*X_des_l;
-		mr::SE3 invX_l_err = TransInv(X_l_err);
-		mr::Vector6d V_l =Jb_l*qdot_l;
-		mr::Vector6d V_l_err = V_l_des - Adjoint(invX_l_err)*V_l;
-		//Ftip_l = mr_indy7_l. //get FTSensor
-		mr::Vector6d Fapply = mr::Vector6d::Zero();
-		if(t>5 && t<5.01)
-			Fapply<< 0,0,0,0,0,1;
 
-
-		robot->apply_FT(&sim,1,Fapply);
-		Ftip_l = Fapply;
-		mr::Vector6d F_l_err = 0.5*(F_l_des - Adjoint(X_l_err)*Ftip_l);
-		mr::Vector6d lambda_l = se3ToVec(MatrixLog6(X_l_err));
-		mr::Vector6d dlambda_l = dlog6(-lambda_l)*V_l_err;
-		mr::Vector6d gamma_l = dexp6(-lambda_l).transpose()*F_l_err;
-
-		mr::Matrix6d A_lambda_l = dexp6(-lambda_l).transpose()*A*dexp6(-lambda_l);
-		mr::Matrix6d D_lambda_l = dexp6(-lambda_l).transpose()*D*dexp6(-lambda_l) + A_lambda_l*ddlog6(-lambda_l,-dlambda_l);
-		mr::Matrix6d K_lambda_l = dexp6(-lambda_l).transpose()*K*dexp6(-lambda_l);
-		mr::Matrix6d KV = dlog6(-lambda_l)*(invA*D*dexp6(-lambda_l) + dexp6(-lambda_l)*ddlog6(-lambda_l,-dlambda_l));
-		mr::Matrix6d KP = dlog6(-lambda_l)*invA*K*dexp6(-lambda_l);
-		mr::Matrix6d KG = dlog6(-lambda_l)*invA*dlog6(-lambda_l).transpose();
-
-		mr::Vector6d ddlambda_ref_l = -KV*dlambda_l -KP*lambda_l + KG*gamma_l;
-		mr::Vector6d  dV_ref_l = Adjoint(X_l_err)*(dV_l_des- dexp6(-lambda_l)*ddlambda_ref_l  + ad(V_l_err)*Adjoint(invX_l_err)*V_l_des - ddexp6(-lambda_l,-dlambda_l)*dlambda_l);
-		double eps = 0.001;
-		//mr::JVec ddq_ref_l = Jb_l.transpose()*(Jb_l*Jb_l.transpose()+eps*Matrix6d::Identity()).inverse()*(dV_ref_l - Jdotb_l*qdot_l);
-		mr::JVec ddq_ref_l = Jb_l.inverse()*(dV_ref_l - Jdotb_l*qdot_l);
 		relmr::MassMat Mmat = dualarm.MassMatrix(q);	
 		relmr::JVec C = dualarm.VelQuadraticForces(q,qdot);
 		relmr::JVec G = dualarm.GravityForces(q);		
-		mr::MassMat Mmat_l = Mmat.bottomRightCorner<6, 6>();
-		mr::JVec C_l = C.segment<6>(6);
-		mr::JVec G_l = G.segment<6>(6);
-
-		mr::JVec tau_c = Mmat_l*ddq_ref_l + C_l+G_l;
-		mr::JVec tau = tau_c+Jb_l.transpose()*(Ftip_l);
-
-		static int print_cnt = 0;
-		if(++print_cnt>100){
-			cout<<t<<"--"<<ddq_ref_l.transpose()<<endl;
-			print_cnt = 0;
+		dualarm.FKinBody(q,qdot);
+		mr::JVec q_r =  q.segment<6>(0);
+		mr::JVec q_l =  q.segment<6>(6);
+		mr::JVec qdot_r =  qdot.segment<6>(0);
+		mr::JVec qdot_l =  qdot.segment<6>(6);
+		Ftip_l<<0,0,0,0,0,0;
+		Ftip_r<<0,0,0,0,0,0;
+		if (t>1 && t<=1.002){
+			Ftip_l<<1,1,1,1,1,1; 
+			Ftip_r<<1,1,1,1,1,1;
 		}
-		mr::JVec tau_L = dualarm.L->ImpedanceControl(q_l,qdot_l,Ftip_l,X_l,Jb_l,Jdotb_l,X_des_l,V_l_des,dV_l_des, F_l_des);
+		
+		mr::JVec tau_L = dualarm.L->ImpedanceControl(q_l,qdot_l,Ftip_l,dualarm.T0l,dualarm.Jb_l,dualarm.Jbdot_l,X_l_des,V_l_des,Vdot_l_des, F_l_des);
+		mr::JVec tau_R = dualarm.R->ImpedanceControl(q_r,qdot_r,Ftip_r,dualarm.T0r,dualarm.Jb_r,dualarm.Jbdot_r,X_r_des,V_r_des,Vdot_r_des, F_r_des);
 
-		//mr::JVec tau= C_l+G_l ;
-		//eint += (q_des-q)*dt;
-		//relmr::JVec HinfTorq = dualarm.HinfControlSim(q,qdot,q_des,qdot_des,qddot_des,eint);
 
 
 
 		relmr::JVec tau_list = G;
+		tau_list.segment<6>(0) = tau_R;
 		tau_list.segment<6>(6) = tau_L;
 		robot->set_torque(&sim,tau_list,max_torque);
 		sim.stepSimulation();

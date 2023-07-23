@@ -203,14 +203,20 @@ relmr::MassMat MR_Indy7_DualArm::MassMatrix(const relmr::JVec q){
 	//relmr::JVec torq = C+G;	
 	return torq;
  }
-void MR_Indy7_DualArm::FKinBody(const relmr::JVec q){
-	mr::JVec q_l,q_r;
+void MR_Indy7_DualArm::FKinBody(const relmr::JVec q,const relmr::JVec qdot){
+	mr::JVec q_l,q_r,qdot_r,qdot_l;
 	q_r = q.segment<6>(0);
 	q_l = q.segment<6>(6);
+    qdot_r = qdot.segment<6>(0);
+	qdot_l = qdot.segment<6>(6);
 	this->T0r = this->R->T_b(q_r);
 	this->T0l = this->L->T_b(q_l);
 	this->Tbr = this->Tbr0*this->T0r;
 	this->Tbl = this->Tbl0*this->T0l;
+    this->Jb_r = this->R->J_b(q_r);
+    this->Jb_l = this->L->J_b(q_l);
+    this->Jbdot_r = this->R->Jdot_b(this->Jb_r,qdot_r);
+    this->Jbdot_l = this->L->Jdot_b(this->Jb_l,qdot_l);
  }
 relmr::JVec MR_Indy7_DualArm::GravityForces(const relmr::JVec q){
 	relmr::JVec grav;

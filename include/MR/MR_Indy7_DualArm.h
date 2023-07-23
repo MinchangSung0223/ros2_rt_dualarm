@@ -31,7 +31,10 @@ public:
     mr::SE3 Tbl;
     mr::SE3 Tbr0;
     mr::SE3 Tbl0;
-
+    mr::Jacobian Jb_r;
+    mr::Jacobian Jb_l;
+    mr::Jacobian Jbdot_r;
+    mr::Jacobian Jbdot_l;
 
     relJVec q;
     relJVec dq;
@@ -69,7 +72,7 @@ public:
     relmr::MassMat MassMatrix(const relmr::JVec q);
     relmr::JVec ForwardDynamics(const relmr::JVec q,const relmr::JVec qdot,const relmr::JVec tau,const Vector6d Ftip_r,const Vector6d Ftip_l);
     relmr::JVec HinfControlSim(const relmr::JVec q,const relmr::JVec qdot,const relmr::JVec q_des,const relmr::JVec qdot_des,const relmr::JVec qddot_des,relmr::JVec& eint);
-    void FKinBody(const relmr::JVec q);
+    void FKinBody(const relmr::JVec q, const relmr::JVec qdot);
     relmr::JVec get_q_rel(relmr::JVec q);
     relmr::JVec get_qdot_rel(relmr::JVec qdot);
 };
