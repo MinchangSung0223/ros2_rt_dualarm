@@ -249,6 +249,14 @@ void RTIndy7_run(void *arg)
 		relmr::MassMat Mmat = dualarm.MassMatrix(q);	
 		relmr::JVec C = dualarm.VelQuadraticForces(q,qdot);
 		relmr::JVec G = dualarm.GravityForces(q);		
+		mr::MassMat Mmat_r=Mmat.topLeftCorner<6, 6>();
+		mr::MassMat Mmat_l=Mmat.bottomRightCorner<6, 6>();
+		mr::JVec C_r = C.segment<6>(0);
+		mr::JVec C_l = C.segment<6>(6);
+		mr::JVec G_r = G.segment<6>(0);
+		mr::JVec G_l = G.segment<6>(6);
+
+
 		dualarm.FKinBody(q,qdot);
 		mr::JVec q_r =  q.segment<6>(0);
 		mr::JVec q_l =  q.segment<6>(6);
@@ -261,15 +269,15 @@ void RTIndy7_run(void *arg)
 			Ftip_r<<1,1,1,1,1,1;
 		}
 		
-		mr::JVec tau_L = dualarm.L->ImpedanceControl(q_l,qdot_l,Ftip_l,dualarm.T0l,dualarm.Jb_l,dualarm.Jbdot_l,X_l_des,V_l_des,Vdot_l_des, F_l_des);
-		mr::JVec tau_R = dualarm.R->ImpedanceControl(q_r,qdot_r,Ftip_r,dualarm.T0r,dualarm.Jb_r,dualarm.Jbdot_r,X_r_des,V_r_des,Vdot_r_des, F_r_des);
+		//mr::JVec tau_L = dualarm.L->ImpedanceControl(q_l,qdot_l,Ftip_l,dualarm.T0l,dualarm.Jb_l,dualarm.Jbdot_l,X_l_des,V_l_des,Vdot_l_des, F_l_des,Mmat_r,C_r,G_r);
+		//mr::JVec tau_R = dualarm.R->ImpedanceControl(q_r,qdot_r,Ftip_r,dualarm.T0r,dualarm.Jb_r,dualarm.Jbdot_r,X_r_des,V_r_des,Vdot_r_des, F_r_des,Mmat_l,C_l,G_l);
 
 
 
 
 		relmr::JVec tau_list = G;
-		tau_list.segment<6>(0) = tau_R;
-		tau_list.segment<6>(6) = tau_L;
+		//tau_list.segment<6>(0) = tau_R;
+		//tau_list.segment<6>(6) = tau_L;
 		robot->set_torque(&sim,tau_list,max_torque);
 		sim.stepSimulation();
 		// Logging

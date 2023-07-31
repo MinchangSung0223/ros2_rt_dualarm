@@ -55,28 +55,29 @@ MR_Indy7::MR_Indy7() {
     this->Hinf_Kp = mr::Matrix6d::Zero();
     this->Hinf_Kv = mr::Matrix6d::Zero();
     this->Hinf_K_gamma = mr::Matrix6d::Zero();
+    this->eef_mass = 0;
     double orn_scale = 0.01;
     this->Imp_A = 1*mr::Matrix6d::Identity();
-    Imp_A(0,0)= 1.0;
-    Imp_A(1,1)= 1.0;
-    Imp_A(2,2)= 1.0;
-    Imp_A(3,3)= 1.0;
-    Imp_A(4,4)= 1.0;
-    Imp_A(5,5)= 1.0;
+    Imp_A(0,0)= 300.0;
+    Imp_A(1,1)= 300.0;
+    Imp_A(2,2)= 300.0;
+    Imp_A(3,3)= 200.0;
+    Imp_A(4,4)= 200.0;
+    Imp_A(5,5)= 200.0;
     this->Imp_D = 20*mr::Matrix6d::Identity();
-    Imp_D(0,0)= 200.0;
-    Imp_D(1,1)= 200.0;
-    Imp_D(2,2)= 200.0;
-    Imp_D(3,3)= 200.0;
-    Imp_D(4,4)= 200.0;
-    Imp_D(5,5)= 200.0;
+    Imp_D(0,0)= 15000.0;
+    Imp_D(1,1)= 15000.0;
+    Imp_D(2,2)= 15000.0;
+    Imp_D(3,3)= 15000.0;
+    Imp_D(4,4)= 15000.0;
+    Imp_D(5,5)= 15000.0;
     this->Imp_K = 100*mr::Matrix6d::Identity();
-    Imp_K(0,0)= 2000.0;
-    Imp_K(1,1)= 2000.0;
-    Imp_K(2,2)= 2000.0;
-    Imp_K(3,3)= 2000.0;
-    Imp_K(4,4)= 2000.0;
-    Imp_K(5,5)= 2000.0;
+    Imp_K(0,0)= 100000.0;
+    Imp_K(1,1)= 100000.0;
+    Imp_K(2,2)= 100000.0;
+    Imp_K(3,3)= 100000.0;
+    Imp_K(4,4)= 100000.0;
+    Imp_K(5,5)= 100000.0;
     this->invImp_A = this->Imp_A.inverse();
     mr::JVec invL2sqr;
     invL2sqr<<1000,1000,800,600,600,600;
@@ -160,7 +161,7 @@ MR_Indy7::MR_Indy7() {
 }
 
 JVec MR_Indy7::Gravity( JVec q){
-         return mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist) ; 
+         return mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist,this->eef_mass) ; 
 }
 void MR_Indy7::saturationMaxTorque(JVec &torque, JVec MAX_TORQUES){
     for(int i =0;i<JOINTNUM;i++){
@@ -173,17 +174,17 @@ void MR_Indy7::saturationMaxTorque(JVec &torque, JVec MAX_TORQUES){
 
 Matrix6xn MR_Indy7::Mmat(JVec q)
 {
-    return mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist);
+    return mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist,this->eef_mass);
 }
 
 JVec MR_Indy7::Cvec(JVec q, JVec dq)
 {
-    return mr::VelQuadraticForces(q, dq,this->Mlist, this->Glist, this->Slist);
+    return mr::VelQuadraticForces(q, dq,this->Mlist, this->Glist, this->Slist,this->eef_mass);
 }
 
 JVec MR_Indy7::Gvec(JVec q)
 {
-    return mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist) ; 
+    return mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist,this->eef_mass) ; 
 }
 
 Jacobian MR_Indy7::J_s(JVec q)
@@ -209,7 +210,7 @@ SE3 MR_Indy7::T_b(JVec q)
     return mr::FKinBody(this->M, this->Blist, q);
 }
 JVec MR_Indy7::ForwardDynamics(const JVec q,const JVec qdot,const JVec tau,Vector6d Ftip){
-   return mr::ForwardDynamics(q,qdot,tau,this->g,Ftip,this->Mlist,this->Glist,this->Slist);
+   return mr::ForwardDynamics(q,qdot,tau,this->g,Ftip,this->Mlist,this->Glist,this->Slist,this->eef_mass);
 }
 MassMat MR_Indy7::MassMatrix(const JVec q){    
     MassMat M =mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist) ;
@@ -223,8 +224,8 @@ JVec MR_Indy7::VelQuadraticForces( const JVec q,const JVec dq){
 JVec MR_Indy7::ComputedTorqueControl( JVec q,JVec dq,JVec q_des,JVec dq_des){
     JVec e = q_des-q;
     JVec edot = dq_des-dq;
-    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist);
-    JVec H=InverseDynamics(q, dq, JVec::Zero(),this->g,Vector6d::Zero(), this->Mlist,this->Glist, this->Slist);
+    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist,this->eef_mass);
+    JVec H=InverseDynamics(q, dq, JVec::Zero(),this->g,Vector6d::Zero(), this->Mlist,this->Glist, this->Slist,this->eef_mass);
     JVec ddq_ref = Kv*edot+Kp*e;
     JVec torq = Mmat*ddq_ref+H;
     return torq;
@@ -232,8 +233,8 @@ JVec MR_Indy7::ComputedTorqueControl( JVec q,JVec dq,JVec q_des,JVec dq_des){
 JVec MR_Indy7::ComputedTorquePIDControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec& eint){
     JVec e = q_des-q;
     JVec edot = dq_des-dq;
-    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist);
-    JVec H=InverseDynamics(q, dq, JVec::Zero(),this->g,Vector6d::Zero(), this->Mlist,this->Glist, this->Slist);
+    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist,this->eef_mass);
+    JVec H=InverseDynamics(q, dq, JVec::Zero(),this->g,Vector6d::Zero(), this->Mlist,this->Glist, this->Slist,this->eef_mass);
     JVec ddq_ref = Kv*edot+Kp*e+Ki*eint;
     JVec torq = Mmat*ddq_ref+H;
     return torq;
@@ -241,9 +242,9 @@ JVec MR_Indy7::ComputedTorquePIDControl( JVec q,JVec dq,JVec q_des,JVec dq_des,J
 JVec MR_Indy7::HinfControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec ddq_des,JVec& eint){
     JVec e = q_des-q;
     JVec edot = dq_des-dq;
-    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist);
-    JVec C = mr::VelQuadraticForces(q, dq,this->Mlist, this->Glist, this->Slist);
-    JVec G = mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist) ; 
+    MassMat Mmat = mr::MassMatrix(q,this->Mlist, this->Glist, this->Slist,this->eef_mass);
+    JVec C = mr::VelQuadraticForces(q, dq,this->Mlist, this->Glist, this->Slist,this->eef_mass);
+    JVec G = mr::GravityForces(q,this->g,this->Mlist, this->Glist, this->Slist,this->eef_mass) ; 
     JVec ddq_ref = ddq_des+Hinf_Kv*edot+Hinf_Kp*e;
     JVec torq = Mmat*ddq_ref+C+G+(Hinf_K_gamma)*(edot + Hinf_Kv*e + Hinf_Kp*eint);
     return torq;
@@ -254,7 +255,7 @@ Vector6d flip_(Vector6d V){
 	return V_flip;
 }
 
-JVec MR_Indy7::ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des){
+JVec MR_Indy7::ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des,MassMat Mmat, JVec  C, JVec G){
     
         SE3 invX = TransInv(X);
         se3 X_err = invX*X_des;
@@ -269,18 +270,20 @@ JVec MR_Indy7::ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian
 		Matrix6d A_lambda = dexp6(-lambda).transpose()*Imp_A*dexp6(-lambda);
 		Matrix6d D_lambda = dexp6(-lambda).transpose()*Imp_D*dexp6(-lambda) + A_lambda*ddlog6(-lambda,-dlambda);
 		Matrix6d K_lambda = dexp6(-lambda).transpose()*Imp_K*dexp6(-lambda);
-		Matrix6d KV = dlog6(-lambda)*(invImp_A*Imp_D*dexp6(-lambda) + dexp6(-lambda)*ddlog6(-lambda,-dlambda));
-		Matrix6d KP = dlog6(-lambda)*invImp_A*Imp_K*dexp6(-lambda);
-		Matrix6d KG = dlog6(-lambda)*invImp_A*dlog6(-lambda).transpose();
+		//Matrix6d KV = dlog6(-lambda)*(invImp_A*Imp_D*dexp6(-lambda) + dexp6(-lambda)*ddlog6(-lambda,-dlambda));
+		//Matrix6d KP = dlog6(-lambda)*invImp_A*Imp_K*dexp6(-lambda);
+		//Matrix6d KG = dlog6(-lambda)*invImp_A*dlog6(-lambda).transpose();
+
+        Matrix6d KV = invImp_A*Imp_D;
+		Matrix6d KP = invImp_A*Imp_K;
+		Matrix6d KG = invImp_A;
+
 
         Vector6d ddlambda_ref = -KV*dlambda -KP*lambda + KG*gamma;
-		Vector6d dV_ref = Adjoint(X_err)*(Vdot_des- flip_(dexp6(-lambda)*ddlambda_ref)  + ad(V_err)*Adjoint(invX_err)*V_des - flip_(ddexp6(-lambda,-dlambda)*dlambda));
+		Vector6d dV_ref = Adjoint(X_err)*(Vdot_des- flip_(dexp6(-lambda)*ddlambda_ref)  + ad(V_err)*V_des - flip_(ddexp6(-lambda,-dlambda)*dlambda));
         double eps = 0.001;
-        //JVec ddq_ref = Jb.transpose()*(Jb*Jb.transpose()+eps*Matrix6d::Identity()).inverse()*(dV_ref - Jbdot*qdot);
-        JVec ddq_ref = Jb.inverse()*(dV_ref - Jbdot*qdot);
-        MassMat Mmat = this->MassMatrix(q);
-        JVec C = this->Cvec(q,qdot);
-        JVec G = this->Gravity(q);
+        JVec ddq_ref = Jb.transpose()*(Jb*Jb.transpose()+eps*Matrix6d::Identity()).inverse()*(dV_ref - Jbdot*qdot);
+        //JVec ddq_ref = Jb.inverse()*(dV_ref - Jbdot*qdot);
         JVec tau_c = Mmat*ddq_ref + C+G ;
         JVec tau = tau_c + Jb.transpose()*Ftip;
         //JVec tau = tau_c + Jb.transpose()*Ftip;

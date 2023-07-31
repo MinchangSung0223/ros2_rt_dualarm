@@ -13,12 +13,16 @@
 #include "MR_Indy7.h"
 #include "MR_DualArm.h"
 #include "rclcpp/rclcpp.hpp"
+
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/wrench_stamped.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "MR_Indy7_DualArm.h"
+
+#include "modern_robotics_relative.h"
 
 //#include "FTread.h"
 
@@ -30,10 +34,9 @@ JointInfo info;
 canHandle hnd_R,hnd_L;
 canStatus stat_R,stat_L;
 
-MR_Indy7 mr_indy7;
 MR_Indy7 mr_indy7_l;
 MR_Indy7 mr_indy7_r;
-MR_DualArm mr_dualarm;
+MR_Indy7_DualArm dualarm;
 
 // Xenomai RT tasks
 RT_TASK RTIndy7_task;
@@ -47,8 +50,6 @@ public:
   JointStatePublisherNode()
       : Node("joint_state_publisher")
   {
-
-    
     joint_state_publisher_ = create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 	rtcp_wrench_publisher_ = create_publisher<geometry_msgs::msg::WrenchStamped>("rtcp_wrench_topic", 10);
 	ltcp_wrench_publisher_ = create_publisher<geometry_msgs::msg::WrenchStamped>("ltcp_wrench_topic", 10);
@@ -68,60 +69,27 @@ private:
     rtcp_wrench_msg->wrench.force.x = std::isfinite(right_info.act.F(0)) ? right_info.act.F(0) : 0.0;
     rtcp_wrench_msg->wrench.force.y = std::isfinite(right_info.act.F(1)) ? right_info.act.F(1) : 0.0;
     rtcp_wrench_msg->wrench.force.z = std::isfinite(right_info.act.F(2)) ? right_info.act.F(2) : 0.0;
-
     rtcp_wrench_msg->wrench.torque.x = std::isfinite(right_info.act.F(3)) ? right_info.act.F(3): 0.0;
     rtcp_wrench_msg->wrench.torque.y = std::isfinite(right_info.act.F(4)) ? right_info.act.F(4): 0.0;
     rtcp_wrench_msg->wrench.torque.z = std::isfinite(right_info.act.F(5)) ? right_info.act.F(5): 0.0;
 	rtcp_wrench_publisher_->publish(*rtcp_wrench_msg);	
-
   }
   void publish_ltcp_wrench(){
 	auto ltcp_wrench_msg = std::make_shared<geometry_msgs::msg::WrenchStamped>();
-
 	ltcp_wrench_msg->header.frame_id = "l_tcp"; // Set the frame ID
 	ltcp_wrench_msg->header.stamp = this->now();
-
     ltcp_wrench_msg->wrench.force.x = std::isfinite(left_info.act.F(0)) ? left_info.act.F(0) : 0.0;
     ltcp_wrench_msg->wrench.force.y = std::isfinite(left_info.act.F(1)) ? left_info.act.F(1) : 0.0;
     ltcp_wrench_msg->wrench.force.z = std::isfinite(left_info.act.F(2)) ? left_info.act.F(2) : 0.0;
-
     ltcp_wrench_msg->wrench.torque.x = std::isfinite(left_info.act.F(3)) ? left_info.act.F(3): 0.0;
     ltcp_wrench_msg->wrench.torque.y = std::isfinite(left_info.act.F(4)) ? left_info.act.F(4) : 0.0;
     ltcp_wrench_msg->wrench.torque.z = std::isfinite(left_info.act.F(5)) ? left_info.act.F(5): 0.0;
 	ltcp_wrench_publisher_->publish(*ltcp_wrench_msg);
-
   }  
   void publish_joint_state()
   {
     //ROS TOPIC
-
     auto joint_state_msg = std::make_shared<sensor_msgs::msg::JointState>();
-
-
-
-    // rtcp_wrench_msg->wrench.force.x = std::isfinite(right_info.act.F(0)) ? right_info.act.F(0)*0.01 : 0.0;
-    // rtcp_wrench_msg->wrench.force.y = std::isfinite(right_info.act.F(1)) ? right_info.act.F(1)*0.01 : 0.0;
-    // rtcp_wrench_msg->wrench.force.z = std::isfinite(right_info.act.F(2)) ? right_info.act.F(2)*0.01 : 0.0;
-
-    // rtcp_wrench_msg->wrench.torque.x = std::isfinite(right_info.act.F(3)) ? right_info.act.F(3)*0.01 : 0.0;
-    // rtcp_wrench_msg->wrench.torque.y = std::isfinite(right_info.act.F(4)) ? right_info.act.F(4)*0.01 : 0.0;
-    // rtcp_wrench_msg->wrench.torque.z = std::isfinite(right_info.act.F(5)) ? right_info.act.F(5)*0.01 : 0.0;
-
-    // // Left TCP wrench
-    // ltcp_wrench_msg->wrench.force.x = std::isfinite(left_info.act.F(0)) ? left_info.act.F(0)*0.01 : 0.0;
-    // ltcp_wrench_msg->wrench.force.y = std::isfinite(left_info.act.F(1)) ? left_info.act.F(1)*0.01 : 0.0;
-    // ltcp_wrench_msg->wrench.force.z = std::isfinite(left_info.act.F(2)) ? left_info.act.F(2)*0.01 : 0.0;
-
-    // ltcp_wrench_msg->wrench.torque.x = std::isfinite(left_info.act.F(3)) ? left_info.act.F(3)*0.01 : 0.0;
-    // ltcp_wrench_msg->wrench.torque.y = std::isfinite(left_info.act.F(4)) ? left_info.act.F(4)*0.01 : 0.0;
-    // ltcp_wrench_msg->wrench.torque.z = std::isfinite(left_info.act.F(5)) ? left_info.act.F(5)*0.01 : 0.0;
-
-
-
-
-    // Left TCP wrench
-
-
     joint_state_msg->header.stamp = this->now();
     joint_state_msg->name = {"l_joint_0", "l_joint_1", "l_joint_2", "l_joint_3", "l_joint_4", "l_joint_5", "r_joint_0", "r_joint_1", "r_joint_2", "r_joint_3", "r_joint_4", "r_joint_5"};
     joint_state_msg->position = {left_info.act.q[0], left_info.act.q[1], left_info.act.q[2], 
@@ -129,12 +97,7 @@ private:
                                 right_info.act.q[0], right_info.act.q[1], right_info.act.q[2], 
                                 right_info.act.q[3], right_info.act.q[4], right_info.act.q[5]};
     joint_state_publisher_->publish(*joint_state_msg);
-
-
-
   }
-
-
 };
 
 
@@ -144,458 +107,6 @@ JVec eint_r;
 JVec e_r ;
 JVec eint_l ;
 JVec e_l ;
-//////////////////////////////////////////////////////////////////
-#ifdef __CASADI__
-	int indy7_G()
-	{
-		RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_G.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_G.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "generalized_gravity");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"generalized_gravity\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors dlrj
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_values[] = {0.0, 0.7, 0.0, 0.0, 0.0, 0.0};
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_values[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[6];
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     printf("%g ", output_values[i]);
-	    // }
-	    // printf("\n");
-	    rt_printf("[cs]computation time for \"G\": %lius\n", (end-start)/1000);
-	    
-	    start = rt_timer_read();
-	    ////mr_indy7.Gvec(info.act.q);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"G\": %lius\n", (end-start)/1000);
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-	int indy7_M()
-	{
-		RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_M.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_M.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "M");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"M\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_values[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_values[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[36]; // 6x6 matrix
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-	    
-	    
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     for (casadi_int j = 0; j < sz_res; ++j) {
-	    //         printf("%g ", output_values[i * sz_res + j]);
-	    //     }
-	    //     printf("\n");
-	    // }
-	    rt_printf("[cs]computation time for \"M\": %lius\n", (end-start)/1000);
-	    
-	    start = rt_timer_read();
-	    ////mr_indy7.Mmat(info.act.q);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"M\": %lius\n", (end-start)/1000);
-
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-
-	int indy7_C()
-	{
-		RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_C.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_C.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "coriolis");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"C\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_pos[] = {0.0, 0.7, 0.0, 0.0, 0.0, 0.0};
-	    double input_vel[] = {0.0, 0.7, 0.0, 0.0, 0.0, 0.0};
-
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_pos[i];
-	    }
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i+6] = &input_vel[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[36]; // 6x6 matrix
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     for (casadi_int j = 0; j < sz_res; ++j) {
-	    //         printf("%g ", output_values[i * sz_res + j]);
-	    //     }
-	    //     printf("\n");
-	    // }
-		rt_printf("[cs]computation time for \"C\": %lius\n", (end-start)/1000);
-	    
-	    start = rt_timer_read();
-	    //mr_indy7.Cvec(info.act.q, info.act.q_dot);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"C\": %lius\n", (end-start)/1000);
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-
-	int indy7_FK()
-	{
-	    RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_fk.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_fk.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "fk_T");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"fk_T\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_values[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_values[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[36]; // 6x6 matrix
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-	    
-	    
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     for (casadi_int j = 0; j < sz_res; ++j) {
-	    //         printf("%g ", output_values[i * sz_res + j]);
-	    //     }
-	    //     printf("\n");
-	    // }
-	    rt_printf("[cs]computation time for \"FK\": %lius\n", (end-start)/1000);
-	    start = rt_timer_read();
-	    //mr_indy7.T_s(info.act.q);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"FK\": %lius\n", (end-start)/1000);
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-
-	int indy7_J_b()
-	{
-		RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_J_b.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_J_b.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "J_b");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"J_b\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_values[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_values[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[36]; // 6x6 matrix
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-	    
-	    
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     for (casadi_int j = 0; j < sz_res; ++j) {
-	    //         printf("%g ", output_values[i * sz_res + j]);
-	    //     }
-	    //     printf("\n");
-	    // }
-	    rt_printf("[cs]computation time for \"J_b\": %lius\n", (end-start)/1000);
-
-	    start = rt_timer_read();
-	    //mr_indy7.J_b(info.act.q);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"J_b\": %lius\n", (end-start)/1000);
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-	int indy7_J_s()
-	{
-		RTIME start, end;
-	// Load the shared library
-	    void* handle = dlopen("../lib/URDF2CASADI/indy7_J_s.so", RTLD_LAZY);
-	    if (handle == 0) {
-	        printf("Cannot open indy7_J_s.so, error: %s\n", dlerror());
-	        return 1;
-	    }
-
-	    // Reset error
-	    dlerror();
-
-	    // Function evaluation
-	    eval_t eval = (eval_t)dlsym(handle, "J_s");
-	    if (dlerror()) {
-	        printf("Failed to retrieve \"J_s\" function.\n");
-	        return 1;
-	    }
-
-	    // Allocate input/output buffers and work vectors
-	    casadi_int sz_arg = 6;
-	    casadi_int sz_res = 6;
-	    casadi_int sz_iw = 0;
-	    casadi_int sz_w = 0;
-
-	    const double* arg[6];
-	    double* res[6];
-	    casadi_int iw[sz_iw];
-	    double w[sz_w];
-
-	    // Set input values
-	    double input_values[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	    for (casadi_int i = 0; i < sz_arg; ++i) {
-	        arg[i] = &input_values[i];
-	    }
-
-	    // Set output buffers
-	    double output_values[36]; // 6x6 matrix
-	    for (casadi_int i = 0; i < sz_res; ++i) {
-	        res[i] = &output_values[i];
-	    }
-
-	    // Evaluate the function
-	    int mem = 0;  // No thread-local memory management
-	    
-	    start = rt_timer_read();
-	    if (eval(arg, res, iw, w, mem)) {
-	        printf("Function evaluation failed.\n");
-	        return 1;
-	    }
-	    end = rt_timer_read();
-	    
-	    
-	    // Print the result
-	    // printf("Result:\n");
-	    // for (casadi_int i = 0; i < sz_res; ++i) {
-	    //     for (casadi_int j = 0; j < sz_res; ++j) {
-	    //         printf("%g ", output_values[i * sz_res + j]);
-	    //     }
-	    //     printf("\n");
-	    // }
-	    rt_printf("[cs]computation time for \"J_s\": %lius\n", (end-start)/1000);
-
-	    start = rt_timer_read();
-	    //mr_indy7.J_s(info.act.q);
-	    end = rt_timer_read();
-	    rt_printf("[mr]computation time for \"J_s\": %lius\n", (end-start)/1000);
-
-
-	    // Free the handle
-	    dlclose(handle);
-
-	    return 0;
-	}
-#endif
-//////////////////////////////////////////////////////////////////
 
 void signal_handler(int signum);
 
@@ -786,19 +297,19 @@ void readEcatData(){
 		i_++;
 	}
 	// Update RFT data
-	info.act.F(0) = FTRawFx[NUM_IO_MODULE+NUM_AXIS] / force_divider;
-	info.act.F(1) = FTRawFy[NUM_IO_MODULE+NUM_AXIS] / force_divider;
-	info.act.F(2) = FTRawFz[NUM_IO_MODULE+NUM_AXIS] / force_divider;
-	info.act.F(3) = FTRawTx[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
-	info.act.F(4) = FTRawTy[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
-	info.act.F(5) = FTRawTz[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
+	// info.act.F(0) = FTRawFx[NUM_IO_MODULE+NUM_AXIS] / force_divider;
+	// info.act.F(1) = FTRawFy[NUM_IO_MODULE+NUM_AXIS] / force_divider;
+	// info.act.F(2) = FTRawFz[NUM_IO_MODULE+NUM_AXIS] / force_divider;
+	// info.act.F(3) = FTRawTx[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
+	// info.act.F(4) = FTRawTy[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
+	// info.act.F(5) = FTRawTz[NUM_IO_MODULE+NUM_AXIS] / torque_divider;
 
-	info.act.F_CB(0) = FTRawFxCB[0] / force_divider;
-	info.act.F_CB(1) = FTRawFyCB[0] / force_divider;
-	info.act.F_CB(2) = FTRawFzCB[0] / force_divider;
-	info.act.F_CB(3) = FTRawTxCB[0] / torque_divider;
-	info.act.F_CB(4) = FTRawTyCB[0] / torque_divider;
-	info.act.F_CB(5) = FTRawTzCB[0] / torque_divider;
+	// info.act.F_CB(0) = FTRawFxCB[0] / force_divider;
+	// info.act.F_CB(1) = FTRawFyCB[0] / force_divider;
+	// info.act.F_CB(2) = FTRawFzCB[0] / force_divider;
+	// info.act.F_CB(3) = FTRawTxCB[0] / torque_divider;
+	// info.act.F_CB(4) = FTRawTyCB[0] / torque_divider;
+	// info.act.F_CB(5) = FTRawTzCB[0] / torque_divider;
 
 	// info.act.F<<(double)FTRawFx[NUM_IO_MODULE+NUM_AXIS]<<(double)FTRawFy[NUM_IO_MODULE+NUM_AXIS]<<(double)FTRawFz[NUM_IO_MODULE+NUM_AXIS]
 	//           <<(double)FTRawTx[NUM_IO_MODULE+NUM_AXIS]<<(double)FTRawTy[NUM_IO_MODULE+NUM_AXIS]<<(double)FTRawTz[NUM_IO_MODULE+NUM_AXIS];
@@ -1054,8 +565,35 @@ void readFT_run(void *arg){
 		for(int i=0;i<6;i++){
 			filtered_FT_R[i] = (alpha)*filtered_FT_R[i]+(1-alpha)*FT_R[i];
 			filtered_FT_L[i] = (alpha)*filtered_FT_L[i]+(1-alpha)*FT_L[i];
-			right_info.act.F(i) = std::isfinite(filtered_FT_R[i]) ? filtered_FT_R[i]: 0.0;
-			left_info.act.F(i) = std::isfinite(filtered_FT_L[i]) ? filtered_FT_L[i]: 0.0;
+			if (abs(filtered_FT_R[i])>100.0 ){
+				if(filtered_FT_R[i]<0){
+					right_info.act.F(i)=-100.0;	
+				}
+				else{
+					right_info.act.F(i)=100.0;	
+				}
+			}
+			else{
+				if(std::isfinite(filtered_FT_R[i]))
+					right_info.act.F(i) = filtered_FT_R[i];
+				else
+					right_info.act.F(i) = 0.0;
+			}
+
+			if (abs(filtered_FT_L[i])>100.0 ){
+				if(filtered_FT_L[i]<0){
+					left_info.act.F(i)=-100.0;	
+				}
+				else{
+					left_info.act.F(i)=100.0;	
+				}
+			}
+			else{
+				if(std::isfinite(filtered_FT_L[i]))
+					left_info.act.F(i) = filtered_FT_L[i];
+				else
+					left_info.act.F(i) = 0.0;
+			}
 		}
 			
 		
@@ -1104,6 +642,9 @@ void RTIndy7_run(void *arg)
 	qT_r<<0.14558084, 0.813371 ,1.3075236,0.614656,1.03065,-0.0693011;
 	JVec qT_l =JVec::Zero();
 	qT_l<<-0.14558084, -0.813371 ,-1.3075236,-0.614656,-1.03065,0.0693011;
+	relmr::JVec q_init=relmr::JVec::Zero();
+	q_init.segment<6>(0) = qT_r;
+	q_init.segment<6>(6) = qT_l;
 	mr::SE3 X_r_des = mr_indy7_r.T_b(qT_r);
 	mr::SE3 X_l_des = mr_indy7_l.T_b(qT_l);
 	mr::Vector6d V_r_des = mr::Vector6d::Zero();
@@ -1112,6 +653,11 @@ void RTIndy7_run(void *arg)
 	mr::Vector6d V_l_des = mr::Vector6d::Zero();
 	mr::Vector6d dV_l_des = mr::Vector6d::Zero();
 	mr::Vector6d F_l_des = mr::Vector6d::Zero();	
+	relmr::JVec q = relmr::JVec::Zero();
+	relmr::JVec qdot = relmr::JVec::Zero();
+	relmr::JVec qddot = relmr::JVec::Zero();
+
+	double dt = 0.001;
 	while (run)
 	{
 		beginCycle = rt_timer_read();
@@ -1137,38 +683,35 @@ void RTIndy7_run(void *arg)
 				}
 			}
 		beginCompute = rt_timer_read();
-		
 		if(system_ready){
 			// Trajectory Generation
 			//trajectory_generation();
 			setTraj(q0_r, qT_r, q0_l, qT_l,5, gt, 5);
 			//[ToDo] Add MPC Function 
 			compute();	
-
+			q.segment<6>(0) = right_info.act.q;
+			q.segment<6>(6) = left_info.act.q;
+			qdot.segment<6>(0) = right_info.act.q_dot;
+			qdot.segment<6>(6) = left_info.act.q_dot;
+			dualarm.FKinBody(q,qdot);
+			relmr::MassMat Mmat = dualarm.MassMatrix(q);	
+			relmr::JVec C = dualarm.VelQuadraticForces(q,qdot);
+			relmr::JVec G = dualarm.GravityForces(q);		
+			mr::MassMat Mmat_r=Mmat.topLeftCorner<6, 6>();
+			mr::MassMat Mmat_l=Mmat.bottomRightCorner<6, 6>();
+			mr::JVec C_r = C.segment<6>(0);
+			mr::JVec C_l = C.segment<6>(6);
+			mr::JVec G_r = G.segment<6>(0);
+			mr::JVec G_l = G.segment<6>(6);
 			// Calculate Joint controller
-			//info.des.tau = //mr_indy7.Gravity( info.act.q ); // calcTorque
-			// info.des.tau = //mr_indy7.ComputedTorqueControl( info.act.q , info.act.q_dot, info.des.q, info.des.q_dot); // calcTorque
 			e_r = right_info.des.q-right_info.act.q;
-			eint_r = eint_r+e_r*0.001;
+			eint_r = eint_r+e_r*dt;
 			e_l = left_info.des.q-left_info.act.q;
-			eint_l = eint_l+e_l*0.001;
+			eint_l = eint_l+e_l*dt;
 			
-			JVec tauVec_r =mr_indy7_r.Gravity( right_info.act.q );
-			JVec tauVec_l =mr_indy7_l.Gravity( left_info.act.q );
-			
-			//right_info.des.tau = tauVec_r;
-			//left_info.des.tau = tauVec_l;
-			
-			mr::SE3 X_r = mr_indy7_r.T_b(right_info.act.q);
-			mr::SE3 X_l = mr_indy7_l.T_b(left_info.act.q);
-			mr::Jacobian Jb_r = mr_indy7_r.J_b(right_info.act.q);
-			mr::Jacobian Jb_l = mr_indy7_l.J_b(left_info.act.q);
-			mr::Jacobian Jbdot_r = mr_indy7_r.Jdot_b(Jb_r,right_info.act.q_dot);
-			mr::Jacobian Jbdot_l = mr_indy7_l.Jdot_b(Jb_l,left_info.act.q_dot);
 			mr::Vector6d Ftip_r = mr::Vector6d::Zero();
 			mr::Vector6d Ftip_l = mr::Vector6d::Zero();
-//			for(int jj = 0;jj<6;jj++)
-//			 	Ftip_r(jj)= right_info.act.F(jj);
+
 			Ftip_r(5)= right_info.act.F(2);
 			Ftip_r(4)= right_info.act.F(1);
 			Ftip_r(3)= right_info.act.F(0);
@@ -1176,7 +719,6 @@ void RTIndy7_run(void *arg)
 			Ftip_r(0)= right_info.act.F(3);
 			Ftip_r(1)= right_info.act.F(4);
 			Ftip_r(2)= right_info.act.F(5);
-
 
 			Ftip_l(5)= left_info.act.F(2);
 			Ftip_l(4)= left_info.act.F(1);
@@ -1192,15 +734,25 @@ void RTIndy7_run(void *arg)
 				  0,0,1,0,
 				  0,0,0,1;
 			Ftip_r = Adjoint(T_).transpose()*Ftip_r;	  
-			Ftip_l = Adjoint(T_).transpose()*Ftip_l;	  
-			//mr::JVec tau_r = mr_indy7_r.ImpedanceControl(right_info.act.q,right_info.act.q_dot,Ftip_r,X_r,Jb_r,Jbdot_r,X_r_des,V_r_des,dV_r_des, F_r_des);
-			//mr::JVec tau_l = mr_indy7_l.ImpedanceControl(left_info.act.q,left_info.act.q_dot,Ftip_l,X_l,Jb_l,Jbdot_l,X_l_des,V_l_des,dV_l_des, F_l_des);
-			//right_info.des.tau = tau_r;
-			//left_info.des.tau = tau_l;
+			Ftip_l = Adjoint(T_).transpose()*Ftip_l;
+			
+			//F_r_des(5)=20*sin(2*3.141592*gt/10.0)-30;
+			//F_l_des(5)=-20*sin(2*3.141592*gt/10.0)-30;
+			//F_r_des(5)=-30;
+			//F_l_des(5)=-30;
+			//mr::JVec tau_r = dualarm.R->ImpedanceControl(right_info.act.q,right_info.act.q_dot,Ftip_r,dualarm.T0r,dualarm.Jb_r,dualarm.Jbdot_r,X_r_des,V_r_des,dV_r_des, F_r_des,Mmat_r,C_r,G_r);
+			//mr::JVec tau_l = dualarm.L->ImpedanceControl(left_info.act.q,left_info.act.q_dot,Ftip_l,dualarm.T0l,dualarm.Jb_l,dualarm.Jbdot_l,X_l_des,V_l_des,dV_l_des, F_l_des,Mmat_l,C_l,G_l);
+			
+			//right_info.des.tau = G_r;
+			//left_info.des.tau = G_l;
+			mr::JVec tau_r = dualarm.R->HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r);
+			mr::JVec tau_l =dualarm.L->HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l);
+			right_info.des.tau = tau_r;
+			left_info.des.tau = tau_l;
 			//right_info.des.tau = mr_indy7_r.HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r)+Jb_r.transpose()*Ftip_r;
 			//left_info.des.tau = mr_indy7_l.HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l)+Jb_l.transpose()*Ftip_l;
-			right_info.des.tau = mr_indy7_r.HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r);
-			left_info.des.tau = mr_indy7_l.HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l);
+			//right_info.des.tau = mr_indy7_r.HinfControl( right_info.act.q , right_info.act.q_dot, right_info.des.q, right_info.des.q_dot,right_info.des.q_ddot,eint_r);
+			//left_info.des.tau = mr_indy7_l.HinfControl( left_info.act.q , left_info.act.q_dot, left_info.des.q, left_info.des.q_dot,left_info.des.q_ddot,eint_l);
 			//right_info.des.tau =tauVec_r;
 			//left_info.des.tau =tauVec_l;			
 			// //mr_indy7.saturationMaxTorque(info.des.tau,MAX_TORQUES);
@@ -1351,61 +903,6 @@ void print_run(void *arg)
 			rt_printf("compute_dt= %lius, worst_dt= %lius, buffer_dt=%lius, ethercat_dt= %lius\n", periodCompute/1000, worstCompute/1000, periodBuffer/1000, periodEcat/1000);
 			rt_printf("Right FT : %.3f \t %.3f \t %.3f \t %.3f \t %.3f \t %.3f\n",right_info.act.F(0),right_info.act.F(1),right_info.act.F(2),right_info.act.F(3),right_info.act.F(4),right_info.act.F(5));
 			rt_printf("Left FT : %.3f \t %.3f \t %.3f \t %.3f \t %.3f \t %.3f\n",left_info.act.F(0),left_info.act.F(1),left_info.act.F(2),left_info.act.F(3),left_info.act.F(4),left_info.act.F(5));
-			// for(int j=0; j<NUM_AXIS; ++j){
-			// 	rt_printf("ID: %d", j);
-			// // 	//rt_printf("\t CtrlWord: 0x%04X, ",		ControlWord[j]);
-			// // 	//rt_printf("\t StatWord: 0x%04X, \n",	StatusWord[j]);
-			// //     //rt_printf("\t DeviceState: %d, ",		DeviceState[j]);
-			// // 	//rt_printf("\t ModeOfOp: %d,	\n",		ModeOfOperationDisplay[j]);
-			// 	rt_printf("\t ActPos: %lf, ActVel: %lf \n",info.act.q(j), info.act.q_dot(j));
-			// 	//rt_printf("\t DesPos: %lf, DesVel :%lf, DesAcc :%lf\n",info.des.q[j],info.des.q_dot[j],info.des.q_ddot[j]);
-			// // 	rt_printf("\t e: %lf, edot :%lf",info.des.q[j]-info.act.q[j],info.des.q_dot[j]-info.act.q_ddot[j]);
-			// 	// rt_printf("\t TarTor: %f, ",				TargetTorq[j]);
-			// 	rt_printf("\t TarTor: %f, ActTor: %lf,\n", info.des.tau(j), info.act.tau(j));
-			// }
-			// for(int j=0; j<6; ++j){
-			// 	rt_printf("R-ID: %d", j);
-			// // 	//rt_printf("\t CtrlWord: 0x%04X, ",		ControlWord[j]);
-			// // 	//rt_printf("\t StatWord: 0x%04X, \n",	StatusWord[j]);
-			// //     //rt_printf("\t DeviceState: %d, ",		DeviceState[j]);
-			// // 	//rt_printf("\t ModeOfOp: %d,	\n",		ModeOfOperationDisplay[j]);
-			// 	//rt_printf("\t ActPos: %lf, ActVel: %lf \n",right_info.act.q(j), right_info.act.q_dot(j));
-			// 	rt_printf("\t error: %lf \n",e_r(j));
-				
-			// 	//rt_printf("\t DesPos: %lf, DesVel :%lf, DesAcc :%lf\n",info.des.q[j],info.des.q_dot[j],info.des.q_ddot[j]);
-			// // 	rt_printf("\t e: %lf, edot :%lf",info.des.q[j]-info.act.q[j],info.des.q_dot[j]-info.act.q_ddot[j]);
-			// 	// rt_printf("\t TarTor: %f, ",				TargetTorq[j]);
-			// 	//rt_printf("\t TarTor: %f, ActTor: %lf , \n", right_info.des.tau(j), right_info.act.tau(j));
-			// 	//rt_printf("\t mr_indy7_r.g %f %f %f ",mr_indy7_r.g(0),mr_indy7_r.g(1),mr_indy7_r.g(2));
-			// }
-			// for(int j=0; j<6; ++j){
-			// 	rt_printf("L-ID: %d", j);
-			// // 	//rt_printf("\t CtrlWord: 0x%04X, ",		ControlWord[j]);
-			// // 	//rt_printf("\t StatWord: 0x%04X, \n",	StatusWord[j]);
-			// //     //rt_printf("\t DeviceState: %d, ",		DeviceState[j]);
-			// // 	//rt_printf("\t ModeOfOp: %d,	\n",		ModeOfOperationDisplay[j]);
-			// 	//rt_printf("\t ActPos: %lf, ActVel: %lf \n",left_info.act.q(j), left_info.act.q_dot(j));
-			// 	//rt_printf("\t DesPos: %lf, DesVel :%lf, DesAcc :%lf\n",info.des.q[j],info.des.q_dot[j],info.des.q_ddot[j]);
-			// // 	rt_printf("\t e: %lf, edot :%lf",info.des.q[j]-info.act.q[j],info.des.q_dot[j]-info.act.q_ddot[j]);
-			// 	// rt_printf("\t TarTor: %f, ",				TargetTorq[j]);
-			// 	rt_printf("\t error: %lf \n",e_l(j));
-			// 	//rt_printf("\t TarTor: %f, ActTor: %lf,  \n", left_info.des.tau(j), left_info.act.tau(j));
-			// 	//rt_printf("\t mr_indy7_l.g %f %f %f ",mr_indy7_l.g(0),mr_indy7_l.g(1),mr_indy7_l.g(2));
-			// }	
-			
-
-			//rt_printf("ReadFT: %f, %f, %f, %f, %f, %f\n", info.act.F(0),info.act.F(1),info.act.F(2),info.act.F(3),info.act.F(4),info.act.F(5));
-			//rt_printf("ReadFT_CB: %f, %f, %f, %f, %f, %f\n", info.act.F_CB(0),info.act.F_CB(1),info.act.F_CB(2),info.act.F_CB(3),info.act.F_CB(4),info.act.F_CB(5));
-			//rt_printf("overload: %u, error: %u\n", FTOverloadStatus[NUM_IO_MODULE+NUM_AXIS], FTErrorFlag[NUM_IO_MODULE+NUM_AXIS]);
-
-#ifdef __CASADI__
-			indy7_M();
-		    indy7_C();
-		    indy7_G();
-		    indy7_J_b();
-		    indy7_J_s();
-            indy7_FK();
-#endif
 
 			rt_printf("\n");
 		}
@@ -1472,8 +969,6 @@ int main(int argc, char *argv[])
 	cycle_ns = 1000000; // nanosecond -> 1kHz
 	period=((double) cycle_ns)/((double) NSEC_PER_SEC);	//period in second unit
 
-	mr_indy7=MR_Indy7();
-    mr_indy7.MRSetup();
 	mr_indy7_l=MR_Indy7();
     mr_indy7_l.MRSetup();
 	mr_indy7_l.g<<0,8.487,-4.9;
@@ -1481,28 +976,10 @@ int main(int argc, char *argv[])
     mr_indy7_r.MRSetup();
 	mr_indy7_r.g<<0,8.487,-4.9;
 
-	mr_dualarm = MR_DualArm();
-	mr_dualarm.MRSetup();
-
-
-	//FTSensor
-
-    // int channel_R = 1;
-	// int channel_L = 0;
-    // canInitializeLibrary();	
-	// hnd_R = canOpenChannel(channel_R,canOPEN_EXCLUSIVE | canOPEN_REQUIRE_EXTENDED | canOPEN_ACCEPT_VIRTUAL);
-	// hnd_L = canOpenChannel(channel_L,canOPEN_EXCLUSIVE | canOPEN_REQUIRE_EXTENDED | canOPEN_ACCEPT_VIRTUAL);
-	// stat_R = canSetBusParams(hnd_R, canBITRATE_1M, 0, 0, 0, 0, 0);
-	// stat_L = canSetBusParams(hnd_L, canBITRATE_1M, 0, 0, 0, 0, 0);
-    // stat_R = canSetNotify(hnd_R, notifyCallback,canNOTIFY_RX | canNOTIFY_TX | canNOTIFY_ERROR | canNOTIFY_STATUS |canNOTIFY_ENVVAR,(char *)0);	
-	// stat_L = canSetNotify(hnd_L, notifyCallback,canNOTIFY_RX | canNOTIFY_TX | canNOTIFY_ERROR | canNOTIFY_STATUS |canNOTIFY_ENVVAR,(char *)0);	
-	// long id = 0x102;
-    // unsigned char sendMsg_R[8] = {0x01, 0x03, 0x01,0x00,0x00,0x00,0x00,0x00}; // Start Continuous Data
-	// unsigned char sendMsg_L[8] = {0x0A, 0x03, 0x01,0x00,0x00,0x00,0x00,0x00}; // Start Continuous Data
-    // stat_R = canWrite(hnd_R, id, sendMsg_R, 8, canMSG_STD);
-	// stat_L = canWrite(hnd_L, id, sendMsg_L, 8, canMSG_STD);
-	// stat_R = canWriteSync(hnd_R, 1000);
-	// stat_L = canWriteSync(hnd_L, 1000);
+	dualarm=MR_Indy7_DualArm();
+	dualarm.MRSetup();	
+	dualarm.L->eef_mass = 0.7;
+    dualarm.R->eef_mass = 0.7;
 
 	//MAX_TORQUES<<MAX_TORQUE_1,MAX_TORQUE_2,MAX_TORQUE_3,MAX_TORQUE_4,MAX_TORQUE_5,MAX_TORQUE_6;
 	// For CST (cyclic synchronous torque) control

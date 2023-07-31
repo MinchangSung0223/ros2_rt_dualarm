@@ -78,6 +78,8 @@ relmr::JVec MR_Indy7_DualArm::get_qdot_rel(relmr::JVec q){
     this->q = relJVec::Zero();
     this->L->g << 0 ,8.487,-4.9;
     this->R->g << 0 ,8.487,-4.9;
+    this->L->eef_mass = 0.0;
+    this->R->eef_mass = 0.0;
     this->HinfSim_Kp = relmr::Matrixnxn::Identity();
     this->HinfSim_Kv = relmr::Matrixnxn::Identity();
     this->HinfSim_Ki = relmr::Matrixnxn::Identity();
@@ -215,7 +217,7 @@ void MR_Indy7_DualArm::FKinBody(const relmr::JVec q,const relmr::JVec qdot){
 	this->Tbl = this->Tbl0*this->T0l;
     this->Jb_r = this->R->J_b(q_r);
     this->Jb_l = this->L->J_b(q_l);
-    this->Jbdot_r = this->R->Jdot_b(this->Jb_r,qdot_r);
+    this->Jbdot_r = this->R-> (this->Jb_r,qdot_r);
     this->Jbdot_l = this->L->Jdot_b(this->Jb_l,qdot_l);
  }
 relmr::JVec MR_Indy7_DualArm::GravityForces(const relmr::JVec q){
@@ -244,7 +246,7 @@ relmr::JVec MR_Indy7_DualArm::GravityForces(const relmr::JVec q){
  };
 void MR_Indy7_DualArm::MRSetup(){
 	Json::Value rootr;
-	bool ret = ReadMRData_("MR_info.json",rootr);
+	bool ret = ReadMRData_("MR_info_real.json",rootr);
 	for(int i =0;i<6 ; i++){
 		for(int j =0;j<this->jointnum;j++){
 			this->Slist(i,j) = rootr["relSlist"][i][j].asDouble();

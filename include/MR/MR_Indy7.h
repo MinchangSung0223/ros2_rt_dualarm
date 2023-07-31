@@ -16,7 +16,7 @@ public:
     mr::ScrewList Slist;
     mr::ScrewList Blist;
     mr::SE3 M;
-
+    double eef_mass;
 	vector<mr::Matrix6d> Glist;	
 	vector<mr::SE3> Mlist;	
     mr::JVec q;
@@ -61,7 +61,7 @@ public:
     void saturationMaxTorque(JVec &torque, JVec MAX_TORQUES);
     mr::JVec ComputedTorquePIDControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec& eint);
     mr::JVec HinfControl( JVec q,JVec dq,JVec q_des,JVec dq_des,JVec ddq_des,JVec& eint);
-    JVec ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des);
+    JVec ImpedanceControl( JVec q,JVec qdot,Vector6d Ftip, SE3 X, Jacobian Jb, Jacobian Jbdot,SE3 X_des, JVec V_des,JVec Vdot_des,Vector6d F_des,MassMat Mmat, JVec  C, JVec G);
     JVec VelQuadraticForces(const  JVec q,JVec dq);
     MassMat MassMatrix(const  JVec q);
     JVec ForwardDynamics(const JVec q,const JVec qdot,const JVec tau,const Vector6d Ftip);

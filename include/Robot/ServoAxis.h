@@ -46,7 +46,7 @@ namespace NRMKHelper
 
 			_pulsePerRevolution = 1;
 			_gearRatio = 1;
-			_gearEfficiency = 100;
+			_gearEfficiency = 70;
 			_tauK = 1;
 
 
